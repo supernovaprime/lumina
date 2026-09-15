@@ -1,71 +1,109 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
-  private readonly client: Redis;
+  private readonly client: Redis | null;
+  private readonly logger = new Logger(RedisService.name);
+  private readonly isConnected = false;
 
   constructor(private readonly config: ConfigService) {
     const redisUrl = config.get<string>('REDIS_URL');
-    this.client = redisUrl
-      ? new Redis(redisUrl, {
-          maxRetriesPerRequest: 3,
-          retryStrategy(times) {
-            const delay = Math.min(times * 50, 2000);
-            return delay;
-          },
-        })
-      : new Redis({
-          maxRetriesPerRequest: 3,
-          retryStrategy(times) {
-            const delay = Math.min(times * 50, 2000);
-            return delay;
-          },
-        });
+
+    if (!redisUrl) {
+      this.logger.warn('REDIS_URL not set — Redis disabled (caching will be no-op)');
+      this.client = null;
+      return;
+    }
+
+    this.client = new Redis(redisUrl, {
+      maxRetriesPerRequest: 3,
+      retryStrategy(times) {
+        if (times > 5) return null;
+        return Math.min(times * 100, 2000);
+      },
+      lazyConnect: true,
+    });
 
     this.client.on('error', (err) => {
-      console.error('Redis connection error:', err.message);
+      this.logger.warn(`Redis error: ${err.message}`);
     });
 
     this.client.on('connect', () => {
-      console.log('✅ Redis connected');
+      this.logger.log('Redis connected');
+    });
+
+    this.client.connect().catch(() => {
+      this.logger.warn('Redis unavailable — caching will be no-op');
     });
   }
 
   async onModuleDestroy() {
-    await this.client.quit();
+    if (this.client) {
+      await this.client.quit();
+    }
   }
 
-  getClient(): Redis {
+  getClient(): Redis | null {
     return this.client;
   }
 
   async get(key: string): Promise<string | null> {
-    return this.client.get(key);
+    if (!this.client) return null;
+    try {
+      return await this.client.get(key);
+    } catch {
+      return null;
+    }
   }
 
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
-    if (ttlSeconds) {
-      await this.client.set(key, value, 'EX', ttlSeconds);
-    } else {
-      await this.client.set(key, value);
+    if (!this.client) return;
+    try {
+      if (ttlSeconds) {
+        await this.client.set(key, value, 'EX', ttlSeconds);
+      } else {
+        await this.client.set(key, value);
+      }
+    } catch {
+      // silently fail
     }
   }
 
   async del(key: string): Promise<void> {
-    await this.client.del(key);
+    if (!this.client) return;
+    try {
+      await this.client.del(key);
+    } catch {
+      // silently fail
+    }
   }
 
   async incr(key: string): Promise<number> {
-    return this.client.incr(key);
+    if (!this.client) return 0;
+    try {
+      return await this.client.incr(key);
+    } catch {
+      return 0;
+    }
   }
 
   async expire(key: string, seconds: number): Promise<void> {
-    await this.client.expire(key, seconds);
+    if (!this.client) return;
+    try {
+      await this.client.expire(key, seconds);
+    } catch {
+      // silently fail
+    }
   }
 
   async keys(pattern: string): Promise<string[]> {
-    return this.client.keys(pattern);
+    if (!this.client) return [];
+    try {
+      return await this.client.keys(pattern);
+    } catch {
+      return [];
+    }
   }
 }
