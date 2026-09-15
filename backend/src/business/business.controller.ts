@@ -58,7 +58,7 @@ export class BusinessController {
   async uploadLogo(
     @Param('id') id: string,
     @CurrentUser('id') userId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
   ) {
     const business = await this.businessService.findById(id);
     if (business.ownerId !== userId) {

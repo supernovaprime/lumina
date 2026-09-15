@@ -41,9 +41,14 @@ export class ServiceService {
     });
     if (!service) throw new NotFoundException('Service not found');
 
+    const updateData: any = { ...dto };
+    if (dto.category) {
+      updateData.category = dto.category;
+    }
+
     return this.prisma.service.update({
       where: { id: serviceId },
-      data: dto,
+      data: updateData,
     });
   }
 
