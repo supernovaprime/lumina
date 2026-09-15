@@ -1,16 +1,198 @@
 # CarWash Backend Workflows
 
 > Companion to `ARCHITECTURE.md` v1.0 and `OVERVIEW.md`.
-> This document defines **how the backend behaves**, step-by-step, for a web-based modular monolith (Next.js Route Handlers + Prisma + PostgreSQL + Redis + separate worker).
+> This document defines **how the backend behaves**, step-by-step, for a NestJS backend + Prisma + PostgreSQL + Redis + separate worker.
 > No frontend logic here — only API contracts, state transitions, invariants, and failure handling.
 
 **Conventions used in this doc:**
 - Base path: `/api/v1/...`
-- Auth: Auth.js v5, httpOnly cookie session. `X-Idempotency-Key: <uuid>` required on `POST /bookings` and `POST /payments`.
-- All mutating workflows run input validation (Zod) → auth → RBAC → transaction → side-effects via outbox/queue.
+- Auth: Passport.js JWT strategy, httpOnly cookie or Bearer token. `X-Idempotency-Key: <uuid>` required on `POST /bookings` and `POST /payments`.
+- All mutating workflows run input validation (class-validator/Zod) → auth guard → RBAC guard → transaction → side-effects via outbox/queue.
 - Money in minor units (cents) internally, `Decimal(10,2)` at rest. Currency default `USD` (configurable per business later).
 - Times stored in UTC. Business timezone stored on `Business.timezone`. Client sends `date: YYYY-MM-DD` + `startTime: HH:mm` in business local time; backend converts to UTC for storage/comparison.
 - Soft delete: `isActive=false` + `deletedAt`. Never hard-delete Users, Businesses, Bookings, Payments.
+
+---
+
+## 0. Features by Role
+
+> This section defines **exactly what each role can do**. Build from this list — nothing else, nothing less.
+
+### 0.1 Customer Features
+
+#### Authentication & Profile
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| Register | `POST /auth/register` | Create account with email + password, role=CUSTOMER |
+| Login | `POST /auth/login` | Email + password, receive JWT |
+| Logout | `POST /auth/logout` | Invalidate session |
+| Forgot Password | `POST /auth/forgot-password` | Request reset email |
+| Reset Password | `POST /auth/reset-password` | Set new password via token |
+| Verify Email | `POST /auth/verify-email` | Confirm email address |
+| Get Profile | `GET /auth/me` | Current user + customer data |
+| Update Profile | `PATCH /auth/profile` | Update name, phone |
+
+#### Vehicles
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| List Vehicles | `GET /customers/me/vehicles` | All my vehicles |
+| Add Vehicle | `POST /customers/me/vehicles` | Create vehicle (make, model, year, type, size, plate) |
+| Update Vehicle | `PATCH /customers/me/vehicles/:id` | Edit vehicle details |
+| Delete Vehicle | `DELETE /customers/me/vehicles/:id` | Remove vehicle (blocked if future bookings) |
+
+#### Bookings
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| Preview Price | `POST /bookings/preview` | Calculate price before booking (no commitment) |
+| Create Booking | `POST /bookings` | Book a service slot (idempotent) |
+| List My Bookings | `GET /customers/me/bookings` | Past + upcoming, filterable by status |
+| Get Booking | `GET /bookings/:id` | Booking detail (own only) |
+| Cancel Booking | `DELETE /bookings/:id` | Cancel with policy check (24h rule) |
+
+#### Favorites
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| List Favorites | `GET /customers/me/favorites` | Saved businesses |
+| Add Favorite | `PUT /customers/me/favorites/:businessId` | Save business (idempotent) |
+| Remove Favorite | `DELETE /customers/me/favorites/:businessId` | Unsave business |
+
+#### Reviews
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| Create Review | `POST /reviews` | Rate 1-5 + comment (only COMPLETED bookings) |
+| Edit Review | `PATCH /reviews/:id` | Edit within 7 days |
+| Delete Review | `DELETE /reviews/:id` | Admin only (customer cannot delete) |
+
+#### Search & Browse
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| Search Businesses | `GET /businesses?query=&lat=&lng=&radiusKm=` | Geo + text search |
+| View Business | `GET /businesses/:id` | Business detail, services, hours |
+| View Services | `GET /businesses/:id/services` | Active services with prices |
+| View Slots | `GET /businesses/:id/slots?date=&serviceId=` | Available time slots |
+
+---
+
+### 0.2 Business Features
+
+#### Authentication & Profile
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| Register | `POST /auth/register` | Create account, role=BUSINESS |
+| Login | `POST /auth/login` | Email + password |
+| Logout | `POST /auth/logout` | Invalidate session |
+| Forgot/Reset Password | `POST /auth/forgot-password` | Same as customer |
+| Verify Email | `POST /auth/verify-email` | Confirm email |
+| Get Profile | `GET /auth/me` | Current user + business data |
+
+#### Business Profile Management
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| Create Business | `POST /businesses` | Set up business profile (name, address, location, hours) |
+| Update Business | `PATCH /businesses/:id` | Edit profile (owner only) |
+| View My Business | `GET /businesses/:id` | Full business detail |
+| Upload Logo | `PATCH /businesses/:id` | Update logo image |
+| Set Operating Hours | `PUT /businesses/:id/availability` | Weekly schedule + blackouts |
+
+#### Service Management
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| List Services | `GET /businesses/:id/services` | All services (active + inactive) |
+| Create Service | `POST /businesses/:id/services` | Add service (name, category, price, duration) |
+| Update Service | `PATCH /businesses/:id/services/:id` | Edit service (future bookings only) |
+| Delete Service | `DELETE /businesses/:id/services/:id` | Soft delete (blocked if future bookings) |
+| Set Price Modifiers | `PUT /businesses/:id/services/:id/modifiers` | Vehicle type/size pricing rules |
+
+#### Availability & Slots
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| Get Template | `GET /businesses/:id/availability` | Current availability rules |
+| Update Template | `PUT /businesses/:id/availability` | Change schedule (triggers slot regeneration) |
+| View Slots | `GET /businesses/:id/slots?date=` | See generated slots for a date |
+
+#### Booking Management
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| List Bookings | `GET /businesses/:id/bookings?date=&status=` | Calendar view |
+| Get Booking | `GET /businesses/:id/bookings/:id` | Booking detail with customer + vehicle |
+| Confirm Booking | `PATCH /businesses/:id/bookings/:id` | Accept pay-at-location booking |
+| Start Service | `PATCH /businesses/:id/bookings/:id` | Mark IN_PROGRESS |
+| Complete Service | `PATCH /businesses/:id/bookings/:id` | Mark COMPLETED |
+| Mark No-Show | `PATCH /businesses/:id/bookings/:id` | Mark customer no-show |
+
+#### Reviews & Reputation
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| View Reviews | `GET /businesses/:id/reviews` | All reviews for my business |
+| Respond to Review | `POST /reviews/:id/response` | Single response per review |
+
+#### Analytics (MVP)
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| Dashboard Stats | `GET /businesses/:id/analytics` | Bookings today, revenue MTD, ratings |
+
+---
+
+### 0.3 Admin Features
+
+#### Authentication
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| Login | `POST /auth/login` | Admin login (no public registration) |
+| Logout | `POST /auth/logout` | Invalidate session |
+
+#### Platform Dashboard
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| Dashboard | `GET /admin/dashboard` | bookingsToday, revenueMTD, activeBusinesses, pendingVerifications, refundRate |
+
+#### User Management
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| List Users | `GET /admin/users?role=&q=` | Paginated user list |
+| Get User | `GET /admin/users/:id` | User detail |
+| Activate User | `PUT /admin/users/:id/activate` | Reactivate account |
+| Deactivate User | `PUT /admin/users/:id/deactivate` | Revoke sessions + cancel future bookings |
+
+#### Business Management
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| List Businesses | `GET /admin/businesses` | All businesses (pending, approved, rejected) |
+| Get Business | `GET /admin/businesses/:id` | Business detail |
+| Verify Business | `PUT /admin/businesses/:id/verify` | APPROVE or REJECT with reason |
+| Deactivate Business | `PUT /admin/businesses/:id/deactivate` | Hide from search, notify owner |
+
+#### Booking Management
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| List All Bookings | `GET /admin/bookings?date=&status=&businessId=` | Platform-wide bookings |
+| Get Booking | `GET /admin/bookings/:id` | Any booking detail |
+| Cancel Booking | `DELETE /admin/bookings/:id` | Admin override cancel |
+| Process Refund | `POST /payments/:id/refund` | Full or partial refund |
+
+#### Reviews Moderation
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| List Flagged Reviews | `GET /admin/reviews?flagged=true` | Reviews needing attention |
+| Hide Review | `PATCH /reviews/:id/hide` | Hide policy-violating review |
+
+#### Reports & Audit
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| Generate Report | `GET /admin/reports?from=&to=&businessId=` | CSV export (async, S3 presigned URL) |
+| View Audit Log | `GET /admin/audit?entity=&action=` | All admin + financial mutations logged |
+
+---
+
+### 0.4 Shared / Public Features (No Auth Required)
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| View Business | `GET /businesses/:id` | Public business profile |
+| View Services | `GET /businesses/:id/services` | Active services with prices |
+| View Slots | `GET /businesses/:id/slots?date=&serviceId=` | Available time slots |
+| Search Businesses | `GET /businesses?query=&lat=&lng=` | Geo + text search |
+| View Reviews | `GET /businesses/:id/reviews` | Public reviews with rating |
+| Stripe Webhook | `POST /webhooks/stripe` | Payment event receiver |
 
 ---
 
@@ -71,7 +253,7 @@
 
 **Workflow:**
 1. RBAC: caller `role==BUSINESS`. One active business per owner for MVP (enforce `ownerId unique`).
-2. Validate address + geocode server-side (Google Maps Geocoding) — do NOT trust client lat/lng blindly. If geocode fails, accept manual coords but flag `geoConfidence=low`.
+2. Validate address + geocode server-side (Nominatim/OSM) — do NOT trust client lat/lng blindly. If geocode fails, accept manual coords but flag `geoConfidence=low`.
 3. Transaction: create `Business { ownerId, ..., isVerified:false, isActive:true, rating:0, reviewCount:0 }`.
 4. Enqueue `admin-notify-new-business` + set `Business.verificationStatus=PENDING`.
 5. Return `201 business`.
@@ -312,7 +494,7 @@ Job `booking-hold-expiry` every 5 min: find `PENDING` bookings older than 15 min
 
 ## 11. Notifications (async, worker-owned)
 
-**Channels:** email (SendGrid) MVP, push (web-push/VAPID) Phase 2, SMS (Twilio) optional for reminders.
+**Channels:** email (Mailgun) MVP, SMS (MNotify) for reminders, push (web-push/VAPID) Phase 2.
 
 **Pattern:** backend writes `Notification { userId, type, title, body, data, channel, status }` + enqueues job. Worker sends + updates `sentAt` + retries with backoff (3 attempts). Templates versioned in `modules/notification/templates/`.
 
@@ -329,7 +511,7 @@ Job `booking-hold-expiry` every 5 min: find `PENDING` bookings older than 15 min
 | business-approved | owner | email | immediate |
 | refund-processed | customer | email | immediate |
 
-**Reminder job:** `send-reminders` cron every 15 min queries `CONFIRMED bookings where startTime in [now+24h ±15min]` without `reminder24hSent`, sends + marks sent (idempotent flag to avoid duplicates).
+**Reminder job:** `send-reminders` cron every 15 min queries `CONFIRMED bookings where startTime in [now+24h ±15min]` without `reminder24hSent`, sends email (Mailgun) + SMS (MNotify) + marks sent (idempotent flag to avoid duplicates).
 
 ---
 
@@ -338,15 +520,15 @@ Job `booking-hold-expiry` every 5 min: find `PENDING` bookings older than 15 min
 - `GET /api/v1/admin/dashboard` — aggregates: `bookingsToday, revenueMTD, activeBusinesses, pendingVerifications, refundRate`. Cache 60s, admin-only.
 - `GET /api/v1/admin/users?role=&q=` — paginated, PII masked in logs.
 - `PUT /api/v1/admin/users/:id/{activate|deactivate}` — deactivation revokes sessions (`tokenVersion++`) + cancels future customer bookings per policy.
-- `GET /api/v1/admin/reports?from=&to=&businessId=` — CSV export via queued job (large reports async + S3 presigned URL, never inline huge CSV).
+- `GET /api/v1/admin/reports?from=&to=&businessId=` — CSV export via queued job (large reports async + Cloudflare R2 presigned URL, never inline huge CSV).
 - All admin mutations write `AuditLog`.
 
 ---
 
 ## 13. Cross-Cutting Rules
 
-### 13.1 RBAC Middleware Order
-`authenticate → loadUser → check isActive → check role → check ownership (if :id scoped) → validate input → execute`. Ownership check helper: `requireOwner(businessId, session)` or `requireAdmin`.
+### 13.1 RBAC Guard Order (NestJS)
+`JwtAuthGuard → RolesGuard → OwnershipGuard → ThrottlerGuard → ValidationPipe → execute`. Ownership check via `@CurrentUser()` decorator + `requireOwner(businessId, user)` helper.
 
 ### 13.2 Validation & Errors
 - Zod schemas in `lib/validators/`. Coerce dates carefully (business timezone).
@@ -372,7 +554,7 @@ Job `booking-hold-expiry` every 5 min: find `PENDING` bookings older than 15 min
 | `review-request` | notifications | delayed 24h | only if COMPLETED |
 | `report-export` | reports | on-demand | S3 presigned URL |
 
-Worker runs OUTSIDE Vercel (Fly/Railway) sharing Prisma schema + Redis. Vercel Cron only as trigger, not executor for long jobs.
+Worker runs on Railway (separate process) sharing Prisma schema + Redis. Railway cron triggers the worker — never executes long work in the main API process.
 
 ### 13.6 Data Retention & Privacy
 - PII access logged. `DELETE /api/v1/customers/me` → anonymize (hash email, clear name/phone) + keep financial records per tax retention (configurable 7y). GDPR export: `GET /api/v1/customers/me/export` → queued JSON dump.
@@ -396,38 +578,104 @@ Worker runs OUTSIDE Vercel (Fly/Railway) sharing Prisma schema + Redis. Vercel C
 
 ## 15. Backend Project Structure — What Goes in Every File
 
-Target runtime: Next.js App Router (Route Handlers) + Prisma + Redis + separate worker. This is the **backend-only view** — frontend pages/components are excluded on purpose so we never build blindly.
+Target runtime: NestJS backend + Prisma + Redis + BullMQ worker (separate process). This is the **backend-only view** — frontend pages/components are excluded on purpose so we never build blindly.
 
 ```
-CarWash/
+CarWash-Backend/
 ├── prisma/
 │   ├── schema.prisma
 │   ├── migrations/
 │   └── seed.ts
 ├── src/
-│   ├── middleware.ts
-│   ├── app/
-│   │   └── api/
-│   │       └── v1/
-│   │           ├── auth/
-│   │           ├── businesses/
-│   │           ├── bookings/
-│   │           ├── customers/
-│   │           ├── payments/
-│   │           ├── reviews/
-│   │           ├── search/
-│   │           ├── admin/
-│   │           └── webhooks/
-│   ├── lib/
-│   ├── modules/
-│   ├── worker/
-│   └── types/
-├── tests/
+│   ├── main.ts                      # NestJS bootstrap
+│   ├── app.module.ts                # Root module
+│   ├── auth/                        # Auth feature module
+│   │   ├── auth.module.ts
+│   │   ├── auth.controller.ts
+│   │   ├── auth.service.ts
+│   │   ├── dto/
+│   │   ├── entities/
+│   │   ├── guards/
+│   │   └── strategies/
+│   ├── business/                    # Business feature module
+│   │   ├── business.module.ts
+│   │   ├── business.controller.ts
+│   │   ├── business.service.ts
+│   │   ├── business.repository.ts
+│   │   ├── dto/
+│   │   └── entities/
+│   ├── booking/                     # Booking feature module
+│   │   ├── booking.module.ts
+│   │   ├── booking.controller.ts
+│   │   ├── booking.service.ts
+│   │   ├── transitions.ts
+│   │   ├── dto/
+│   │   └── entities/
+│   ├── payment/                     # Payment feature module
+│   │   ├── payment.module.ts
+│   │   ├── payment.controller.ts
+│   │   ├── payment.service.ts
+│   │   ├── dto/
+│   │   └── entities/
+│   ├── review/                      # Review feature module
+│   │   ├── review.module.ts
+│   │   ├── review.controller.ts
+│   │   ├── review.service.ts
+│   │   ├── dto/
+│   │   └── entities/
+│   ├── search/                      # Search feature module
+│   │   ├── search.module.ts
+│   │   ├── search.controller.ts
+│   │   └── search.service.ts
+│   ├── notification/                # Notification feature module
+│   │   ├── notification.module.ts
+│   │   ├── notification.service.ts
+│   │   └── templates/
+│   ├── admin/                       # Admin feature module
+│   │   ├── admin.module.ts
+│   │   ├── admin.controller.ts
+│   │   ├── admin.service.ts
+│   │   └── dto/
+│   ├── webhooks/                    # Webhook handlers
+│   │   ├── webhooks.module.ts
+│   │   └── webhooks.controller.ts
+│   ├── libs/                        # Shared libraries
+│   │   ├── prisma/
+│   │   ├── redis/
+│   │   ├── auth/
+│   │   ├── common/
+│   │   │   ├── guards/
+│   │   │   ├── interceptors/
+│   │   │   ├── filters/
+│   │   │   ├── pipes/
+│   │   │   └── decorators/
+│   │   ├── config/
+│   │   ├── email/
+│   │   ├── sms/
+│   │   ├── stripe/
+│   │   ├── geo/
+│   │   ├── cache/
+│   │   ├── money/
+│   │   ├── time/
+│   │   ├── idempotency/
+│   │   ├── audit/
+│   │   └── logger/
+│   ├── worker/                      # BullMQ worker (separate process)
+│   │   ├── worker.module.ts
+│   │   ├── main.ts
+│   │   ├── queues/
+│   │   └── processors/
+│   └── types/                       # Shared contracts
+│       ├── api.ts
+│       └── domain.ts
+├── test/
 │   ├── unit/
 │   ├── integration/
+│   ├── e2e/
 │   └── load/
 ├── .env.example
-├── next.config.js
+├── nest-cli.json
+├── tsconfig.json
 └── package.json
 ```
 
@@ -439,117 +687,134 @@ CarWash/
 
 **`prisma/seed.ts`** — idempotent dev seed: 1 admin, 2 businesses (1 verified, 1 pending), 5 services, 1 availability template + 7 days slots, 2 customers + vehicles, 3 bookings (PENDING/CONFIRMED/COMPLETED), 1 review. Run with `prisma db seed`. Used by integration tests.
 
-### 15.2 `src/middleware.ts` — edge gatekeeper
-Runs on every `/api/v1/*` request. Does: assign `X-Request-Id`, CORS for webhooks exclusion, Auth.js session check for protected routes, Redis rate-limit (`lib/rate-limit.ts`), maintenance-mode short-circuit. Never does DB writes here — only redirects/429/401.
+### 15.2 `src/main.ts` — NestJS bootstrap + global config
+Bootstraps NestJS app with: `ValidationPipe` (global), `HttpExceptionFilter` (global), `TransformInterceptor` (global), CORS enabled, `@nestjs/throttler` rate limiting, Swagger docs at `/api/docs`. Applies guards in order: `JwtAuthGuard → RolesGuard → OwnershipGuard → ThrottlerGuard`.
 
-### 15.3 `src/app/api/v1/` — thin HTTP adapters (no business logic)
-Rule: each `route.ts` does only: parse → `validateWith(schema)` → `requireSession/requireRole` → call `modules/<domain>/service.ts` → `ok()/fail()` response. No Prisma calls directly in routes.
+### 15.3 `src/` — NestJS controllers, services, modules
 
-**`auth/register/route.ts`** — `POST` → §1.1. Calls `modules/auth/service.register()`, enqueues verification email.
-**`auth/login/route.ts, auth/logout/route.ts, auth/me/route.ts`** — login (§1.2), logout idempotent, me hydrates `User+Customer/Business`.
-**`auth/forgot-password/route.ts, auth/reset-password/route.ts, auth/verify-email/route.ts`** — token create/consume flows, always 200 on forgot to prevent enumeration.
-**`businesses/route.ts`** — `GET` public search (§5) + `POST` create profile (§2.1).
-**`businesses/[id]/route.ts`** — `GET` public detail (cached), `PATCH` owner/admin update (§2.3), invalidates `business:{id}` + `search:*`.
-**`businesses/[id]/services/route.ts`** — `GET` public active list, `POST` owner create (§3.1).
-**`businesses/[id]/services/[serviceId]/route.ts`** — `PATCH/DELETE` with `HAS_FUTURE_BOOKINGS` guard.
-**`businesses/[id]/services/[serviceId]/modifiers/route.ts`** — `PUT` bulk upsert modifiers (§3.2).
-**`businesses/[id]/availability/route.ts`** — `GET` public template summary + `PUT` owner update (§4.1), enqueues `generate-slots`.
-**`businesses/[id]/slots/route.ts`** — `GET ?date=&serviceId=` (§4.4). Reads Redis `slots:{id}:{date}` or DB, filters by service duration.
-**`businesses/[id]/bookings/route.ts`** — `GET` owner calendar view `?date=&status=` (§6.6). Includes customer+vehicle+service joins.
-**`businesses/[id]/bookings/[bookingId]/route.ts`** — `PATCH {action: CONFIRM|START|COMPLETE|NO_SHOW}` (§6.3-6.4). Enforces state machine.
-**`bookings/route.ts`** — `POST` create with `X-Idempotency-Key` (§6.2). The most critical handler — delegates to `modules/booking/service.createBookingTx()`.
-**`bookings/preview/route.ts`** — `POST` price preview, no writes (§6.1).
-**`bookings/[id]/route.ts`** — `GET` (owner parties or admin), `DELETE` cancel with policy (§6.5).
-**`customers/me/vehicles/route.ts`** — `GET/POST` own vehicles (§8).
-**`customers/me/vehicles/[vehicleId]/route.ts`** — `PATCH/DELETE` with future-booking guard.
-**`customers/me/bookings/route.ts`** — `GET ?upcoming=&status=` customer history.
-**`customers/me/favorites/route.ts`** — `GET` list (§10).
-**`customers/me/favorites/[businessId]/route.ts`** — `PUT/DELETE` idempotent (§10).
-**`payments/route.ts`** — `POST {bookingId}` create PaymentIntent (§7.1). Returns `clientSecret`.
-**`payments/[id]/refund/route.ts`** — `POST` admin/owner refund (§7.4).
-**`reviews/route.ts`** — `POST {bookingId, rating, comment}` (§9) + `GET ?businessId=` public list with pagination.
-**`reviews/[id]/route.ts`** — `PATCH` edit within 7d, `DELETE` admin hide only.
-**`reviews/[id]/response/route.ts`** — `POST` business single response.
-**`search/businesses/route.ts`** — alias to `businesses/route.ts` filtering or dedicated geo handler (§5). Kept separate to allow Meilisearch swap later without touching CRUD.
-**`admin/dashboard/route.ts`** — `GET` cached aggregates (§12).
-**`admin/users/route.ts, admin/users/[id]/route.ts`** — list + activate/deactivate with `tokenVersion++`.
-**`admin/businesses/route.ts, admin/businesses/[id]/verify/route.ts`** — pending queue + APPROVE/REJECT (§2.2).
-**`admin/bookings/route.ts, admin/reports/route.ts`** — all-bookings filters + async CSV export (returns `jobId`, not file).
-**`webhooks/stripe/route.ts`** — `POST` raw body, `stripe.webhooks.constructEvent` verify, switch on `payment_intent.succeeded/failed`, `charge.refunded` (§7.2). Must return 200 fast, queue heavy work.
+Rule: each controller does only: parse → `ValidationPipe` → `@UseGuards(JwtAuthGuard, RolesGuard)` → call `service.method()` → return response. No Prisma calls directly in controllers.
 
-### 15.4 `src/lib/` — shared plumbing (no domain rules)
+**`auth/auth.controller.ts`** — `POST /register` → §1.1, `POST /login` → §1.2, `POST /logout`, `GET /me`, `POST /forgot-password`, `POST /reset-password`, `POST /verify-email`.
+**`business/business.controller.ts`** — `POST /` create profile (§2.1), `GET /:id` public detail, `PATCH /:id` owner update (§2.3).
+**`business/business.controller.ts`** — `GET /:id/services` public list, `POST /:id/services` owner create (§3.1), `PATCH /:id/services/:serviceId`, `DELETE /:id/services/:serviceId`.
+**`business/business.controller.ts`** — `PUT /:id/availability` owner update (§4.1), `GET /:id/slots?date=&serviceId=` (§4.4).
+**`business/business.controller.ts`** — `GET /:id/bookings` owner calendar, `PATCH /:id/bookings/:bookingId` status transitions (§6.3-6.4).
+**`booking/booking.controller.ts`** — `POST /` create with `@Headers('x-idempotency-key')` (§6.2), `POST /preview` price preview (§6.1), `GET /:id` detail, `DELETE /:id` cancel (§6.5).
+**`customer/customer.controller.ts`** — `GET /me/vehicles`, `POST /me/vehicles`, `PATCH /me/vehicles/:id`, `DELETE /me/vehicles/:id` (§8). `GET /me/bookings` (§6.6). `GET /me/favorites`, `PUT /me/favorites/:businessId`, `DELETE /me/favorites/:businessId` (§10).
+**`payment/payment.controller.ts`** — `POST /` create PaymentIntent (§7.1), `POST /:id/refund` admin/owner refund (§7.4).
+**`review/review.controller.ts`** — `POST /` create (§9), `GET ?businessId=` public list, `PATCH /:id` edit within 7d, `POST /:id/response` business response.
+**`search/search.controller.ts`** — `GET /businesses` geo + text search (§5).
+**`admin/admin.controller.ts`** — `GET /dashboard` (§12), `GET /users`, `PUT /users/:id/activate|deactivate`, `GET /businesses`, `PUT /businesses/:id/verify` (§2.2), `GET /bookings`, `GET /reports`.
+**`webhooks/webhooks.controller.ts`** — `POST /stripe` raw body, signature verify, switch on event type (§7.2). Must return 200 fast, queue heavy work.
 
-**`lib/db.ts`** — singleton PrismaClient with PgBouncer-friendly pool (`connection_limit=5` on serverless). Exports `db`. Handles `globalThis` caching in dev.
-**`lib/redis.ts`** — ioredis/Upstash client singleton. Exports `redis`. Used by cache + rate-limit + queues.
-**`lib/auth.ts`** — Auth.js v5 config: providers (credentials + OAuth), callbacks attaching `role, tokenVersion`, `requireSession()`, `requireRole('ADMIN'|'BUSINESS'|'CUSTOMER')`, `requireOwner(businessId)` helpers used by all routes.
-**`lib/password.ts`** — `hashPassword()`, `verifyPassword()` (bcrypt 12). Nothing else touches passwords.
-**`lib/tokens.ts`** — `createVerificationToken()`, `createPasswordResetToken()`, `consumeToken()` single-use logic (§1).
-**`lib/validators/`** — one Zod file per domain, imported by routes AND services:
-- `auth.schema.ts` — register/login/reset shapes, password rules.
-- `business.schema.ts` — create/patch, operatingHours typed schema.
-- `service.schema.ts` — basePriceCents>0, duration enum.
-- `availability.schema.ts` — slotLength/buffer/maxParallel/weekly windows validation.
-- `booking.schema.ts` — date `YYYY-MM-DD`, time `HH:mm`, future-date check.
-- `payment.schema.ts`, `review.schema.ts` (rating 1-5 int), `vehicle.schema.ts` (year range, plate regex).
-**`lib/errors.ts`** — `fail(code, message, status, details)` + stable codes (`SLOT_TAKEN, HAS_FUTURE_BOOKINGS...`), `ok(data, meta)`, Sentry capture for 5xx.
-**`lib/pagination.ts`** — cursor/offset helpers: `parseCursor()`, `buildPaginatedResponse(data, nextCursor)`.
-**`lib/rate-limit.ts`** — `checkRateLimit({key, limit, windowSec})` via Redis INCR+EXPIRE, used in `middleware.ts` + booking/payment routes.
-**`lib/cache.ts`** — `getCached/setCached/invalidate(pattern)` wrappers with key builders `slotsKey(), businessKey(), searchKey()`.
-**`lib/time.ts`** — timezone-safe helpers: `toUTC(date, time, tz)`, `isWithinWindow()`, `addMinutes()`, `isFreeCancel(startAt)`. All booking logic uses this — never raw `Date`.
-**`lib/money.ts`** — cents↔Decimal conversion, `resolvePrice(base, modifiers)` (§3.2), rounding.
-**`lib/geo.ts`** — server-side geocode wrapper + `ST_DWithin` query builder (§5). Mocks in tests.
-**`lib/stripe.ts`** — Stripe SDK singleton, `createPaymentIntent()`, `createRefund()`, `verifyWebhookSignature()`.
-**`lib/email.ts`** — SendGrid wrapper `sendEmail({to, template, data})`. Called only from worker, never routes.
-**`lib/idempotency.ts`** — `checkOrStore(key, userId, response)` used by booking/payment (§6.2). TTL 24h.
-**`lib/audit.ts`** — `writeAudit({actorId, action, entityType, entityId, metadata})` for admin + financial mutations.
-**`lib/logger.ts`** — pino logger with `requestId` child, PII redaction.
+### 15.4 `src/libs/` — shared plumbing (NestJS modules, no domain rules)
 
-### 15.5 `src/modules/` — domain logic (the real workflows)
+**`libs/prisma/prisma.module.ts`** — `@Global()` module exporting `PrismaService`. Imported once in `AppModule`.
+**`libs/prisma/prisma.service.ts`** — extends `PrismaClient` with `enableShutdownHooks()`, connection pooling, PgBouncer-friendly config (`connection_limit=5`).
+**`libs/redis/redis.module.ts`** — `@Global()` module exporting `RedisService`. Wraps ioredis/Upstash.
+**`libs/redis/redis.service.ts`** — `get/set/del/incr/expire` wrappers. Used by cache + rate-limit + queues.
+**`libs/common/guards/jwt-auth.guard.ts`** — validates JWT from cookie or Bearer header, attaches `user` to request.
+**`libs/common/guards/roles.guard.ts`** — checks `@Roles('ADMIN'|'BUSINESS'|'CUSTOMER')` decorator against `user.role`.
+**`libs/common/guards/ownership.guard.ts`** — checks `user.id` owns the resource (business, booking, vehicle).
+**`libs/common/guards/rate-limit.guard.ts`** — NestJS ThrottlerGuard with Redis store, per-route limits.
+**`libs/common/interceptors/transform.interceptor.ts`** — wraps response in `{ success: true, data }` envelope.
+**`libs/common/interceptors/logging.interceptor.ts`** — logs request/response with `requestId`, PII redaction.
+**`libs/common/filters/http-exception.filter.ts`** — catches exceptions, returns `{ success: false, error: { code, message, details } }` envelope, sends 5xx to Sentry.
+**`libs/common/decorators/current-user.decorator.ts`** — `@CurrentUser()` parameter decorator to extract user from request.
+**`libs/common/decorators/roles.decorator.ts`** — `@Roles('ADMIN')` metadata decorator for RBAC.
+**`libs/common/pipes/validation.pipe.ts`** — global `ValidationPipe` with `whitelist: true, forbidNonWhitelisted: true, transform: true`.
+**`libs/config/config.module.ts`** — `@nestjs/config` with `.env` validation via Joi/Zod.
+**`libs/auth/auth.module.ts`** — `PassportModule` + `JwtModule` registration, `JwtStrategy`, exports `AuthService`.
+**`libs/auth/auth.service.ts`** — `register(), login(), verifyEmail(), requestReset(), resetPassword()`. Owns bcrypt + tokenVersion + fail-counter logic (§1).
+**`libs/auth/jwt.strategy.ts`** — extracts JWT from cookie/header, validates, returns `user` payload.
+**`libs/password/password.service.ts`** — `hashPassword()`, `verifyPassword()` (bcrypt 12). Nothing else touches passwords.
+**`libs/tokens/token.service.ts`** — `createVerificationToken()`, `createPasswordResetToken()`, `consumeToken()` single-use logic (§1).
+**`libs/money/money.service.ts`** — cents↔Decimal conversion, `resolvePrice(base, modifiers)` (§3.2), rounding.
+**`libs/time/time.service.ts`** — timezone-safe helpers: `toUTC(date, time, tz)`, `isWithinWindow()`, `addMinutes()`, `isFreeCancel(startAt)`.
+**`libs/geo/geo.service.ts`** — Nominatim geocoding wrapper + `ST_DWithin` query builder (§5). Uses OpenStreetMap (free, no API key).
+**`libs/stripe/stripe.service.ts`** — Stripe SDK, `createPaymentIntent()`, `createRefund()`, `verifyWebhookSignature()`.
+**`libs/email/email.service.ts`** — Mailgun wrapper `sendEmail({to, template, data})`. Called only from worker, never controllers.
+**`libs/sms/sms.service.ts`** — MNotify wrapper `sendSMS({to, message})`. Called only from worker for reminders.
+**`libs/cache/cache.service.ts`** — `getCached/setCached/invalidate(pattern)` wrappers with key builders `slotsKey(), businessKey(), searchKey()`.
+**`libs/idempotency/idempotency.service.ts`** — `checkOrStore(key, userId, response)` used by booking/payment (§6.2). TTL 24h.
+**`libs/audit/audit.service.ts`** — `writeAudit({actorId, action, entityType, entityId, metadata})` for admin + financial mutations.
+**`libs/logger/logger.service.ts`** — pino/logger with `requestId` child, PII redaction.
 
-Each module owns its service + data access. Routes never cross modules directly — e.g., booking service calls `pricing.resolve()` and `notifications.enqueue()`, not DB tables of other domains ad hoc.
+### 15.5 `src/` — feature modules (the real workflows)
 
-**`modules/auth/service.ts`** — `register(), login(), verifyEmail(), requestReset(), resetPassword()`. Owns bcrypt + tokenVersion + fail-counter logic (§1).
-**`modules/business/service.ts + repository.ts`** — `createProfile(), updateProfile(), verify(), getPublicDetail(), listSearch()` (§2, §5). Repository holds PostGIS + full-text queries.
-**`modules/service-pricing/service.ts`** — `create(), update(), softDeleteWithGuard(), upsertModifiers(), resolvePrice()` (§3). Guard queries future CONFIRMED count before delete.
-**`modules/availability/service.ts + slots.ts`** — `updateTemplate(), generateSlots(businessId, horizon)`, `reconcile()`, `getSlotsForDate()` (§4). `slots.ts` holds slicing algorithm (window → chunks).
-**`modules/booking/service.ts`** — `preview(), createBookingTx(), confirm(), start(), complete(), cancel(), getForCustomer(), getForBusiness()` (§6). `createBookingTx()` is the transactional core: idempotency → validate → `FOR UPDATE` lock → price → create → increment → outbox event. `transitions.ts` in same folder enforces state machine map.
-**`modules/payment/service.ts + stripe.ts`** — `createIntent(), handleWebhookEvent(), refund()` (§7). Webhook handler is idempotent on `Payment.status`.
-**`modules/vehicle/service.ts`** — CRUD with plate-unique + future-booking guard (§8).
-**`modules/review/service.ts`** — `create(), edit(), respond(), hide()`, `recomputeRating(businessId)` via `AVG` (§9).
-**`modules/favorite/service.ts`** — upsert/delete/list (§10).
-**`modules/notification/service.ts + templates/`** — `enqueue(type, userId, data)`, `sendDue()`, `markSent()`. `templates/*.ts` hold subject/body builders per trigger (§11). No sending in request cycle.
-**`modules/admin/service.ts`** — dashboard aggregates, user activate/deactivate, report export job creator (§12).
-**`modules/search/service.ts`** — builds cache key, delegates geo/text to `business/repository.ts` (§5).
+Each module owns its controller + service + DTOs. Controllers never contain business logic — they delegate to services. Services call other services (not other modules' repositories directly).
 
-### 15.6 `src/worker/` — runs OUTSIDE Vercel (Fly/Railway)
+**`auth/auth.module.ts`** — imports `PassportModule`, `JwtModule`, `PrismaModule`. Exports `AuthService`.
+**`auth/auth.controller.ts`** — `POST /register`, `POST /login`, `POST /logout`, `GET /me`, `POST /forgot-password`, `POST /reset-password`, `POST /verify-email`. §1.
+**`auth/auth.service.ts`** — `register(), login(), verifyEmail(), requestReset(), resetPassword()`. Owns bcrypt + tokenVersion + fail-counter logic (§1).
+**`auth/dto/register.dto.ts`** — `class-validator` decorators: `@IsEmail()`, `@MinLength(8)`, `@IsIn(['CUSTOMER','BUSINESS'])`.
+**`auth/strategies/jwt.strategy.ts`** — validates JWT, returns `{ userId, email, role }`.
+**`auth/guards/jwt-auth.guard.ts`** — extends `AuthGuard('jwt')`, attaches `user` to request.
+**`auth/guards/roles.guard.ts`** — checks `@Roles()` metadata against `user.role`.
 
-**`worker/index.ts`** — BullMQ connection (Redis), registers all processors, graceful shutdown, Sentry init.
-**`worker/queues.ts`** — queue definitions + names: `notifications, scheduling, bookings, reports`. Exports typed `enqueue(job)`.
-**`worker/jobs/send-email.ts`** — reads `Notification` row, calls `lib/email.ts`, updates `sentAt`, retry 3x backoff (§11).
-**`worker/jobs/generate-slots.ts`** — nightly + on-demand (§4.2). Idempotent upsert.
-**`worker/jobs/reconcile-slots.ts`** — (§4.3). Never auto-cancels paid.
-**`worker/jobs/booking-hold-expiry.ts`** — every 5 min (§7.3).
-**`worker/jobs/send-reminders.ts`** — every 15 min with `reminder24hSent/reminder2hSent` flags (§11).
-**`worker/jobs/review-request.ts`** — delayed 24h after COMPLETED (§9).
-**`worker/jobs/report-export.ts`** — streams DB → CSV → S3, returns presigned URL (§12).
-**`worker/cron.ts`** — node-cron or Trigger.dev schedules wiring the above intervals. Vercel Cron only hits a lightweight `/api/v1/cron/trigger` that enqueues — never executes long work.
+**`business/business.module.ts`** — imports `PrismaModule`, `CacheModule`. Exports `BusinessService`.
+**`business/business.controller.ts`** — `POST /` create profile (§2.1), `GET /:id` public detail (cached), `PATCH /:id` owner update (§2.3).
+**`business/business.service.ts`** — `createProfile(), updateProfile(), verify(), getPublicDetail(), listSearch()` (§2, §5).
+**`business/business.repository.ts`** — PostGIS + full-text queries, cache invalidation.
+
+**`booking/booking.module.ts`** — imports `PrismaModule`, `CacheModule`, `NotificationModule`, `PaymentModule`. Exports `BookingService`.
+**`booking/booking.controller.ts`** — `POST /` create with idempotency key (§6.2), `POST /preview` (§6.1), `GET /:id`, `DELETE /:id` cancel (§6.5).
+**`booking/booking.service.ts`** — `preview(), createBookingTx(), confirm(), start(), complete(), cancel(), getForCustomer(), getForBusiness()` (§6). `createBookingTx()` is the transactional core: idempotency → validate → `FOR UPDATE` lock → price → create → increment → outbox event.
+**`booking/transitions.ts`** — state machine map enforcing valid transitions (PENDING→CONFIRMED→IN_PROGRESS→COMPLETED, CANCELLED, REFUNDED).
+
+**`payment/payment.module.ts`** — imports `PrismaModule`, `StripeModule`. Exports `PaymentService`.
+**`payment/payment.controller.ts`** — `POST /` create PaymentIntent (§7.1), `POST /:id/refund` admin/owner refund (§7.4).
+**`payment/payment.service.ts`** — `createIntent(), handleWebhookEvent(), refund()` (§7). Webhook handler is idempotent on `Payment.status`.
+
+**`review/review.module.ts`** — imports `PrismaModule`. Exports `ReviewService`.
+**`review/review.controller.ts`** — `POST /` create (§9), `GET ?businessId=` public list, `PATCH /:id` edit within 7d, `POST /:id/response` business response.
+**`review/review.service.ts`** — `create(), edit(), respond(), hide()`, `recomputeRating(businessId)` via `AVG` (§9).
+
+**`search/search.module.ts`** — imports `PrismaModule`, `CacheModule`. Exports `SearchService`.
+**`search/search.controller.ts`** — `GET /businesses` geo + text search (§5).
+**`search/search.service.ts`** — builds cache key, delegates geo/text to `business.repository.ts` (§5).
+
+**`notification/notification.module.ts`** — imports `PrismaModule`, `EmailModule`, `SmsModule`. Exports `NotificationService`.
+**`notification/notification.service.ts`** — `enqueue(type, userId, data)`, `sendDue()`, `markSent()`.
+**`notification/templates/`** — `*.ts` files hold subject/body builders per trigger (§11). No sending in request cycle.
+
+**`admin/admin.module.ts`** — imports `PrismaModule`, `CacheModule`. Exports `AdminService`.
+**`admin/admin.controller.ts`** — `GET /dashboard` (§12), `GET /users`, `PUT /users/:id/activate|deactivate`, `GET /businesses`, `PUT /businesses/:id/verify` (§2.2), `GET /bookings`, `GET /reports`.
+**`admin/admin.service.ts`** — dashboard aggregates, user activate/deactivate, report export job creator (§12).
+
+### 15.6 `src/worker/` — runs OUTSIDE Vercel (Railway, separate process)
+
+**`worker/worker.module.ts`** — NestJS module importing `PrismaModule`, `RedisModule`, `EmailModule`, `SmsModule`, all processor classes.
+**`worker/main.ts`** — bootstrap NestJS app, connect BullMQ (Redis), register all processors, graceful shutdown, Sentry init.
+**`worker/queues/queue Definitions.ts`** — queue names: `notifications, scheduling, bookings, reports`. Exports typed `enqueue(job)`.
+**`worker/processors/send-email.processor.ts`** — reads `Notification` row, calls `EmailService` (Mailgun), updates `sentAt`, retry 3x backoff (§11).
+**`worker/processors/send-sms.processor.ts`** — reads `Notification` row, calls `SmsService` (MNotify), updates `sentAt`, retry 3x backoff (§11).
+**`worker/processors/generate-slots.processor.ts`** — nightly + on-demand (§4.2). Idempotent upsert.
+**`worker/processors/reconcile-slots.processor.ts`** — (§4.3). Never auto-cancels paid.
+**`worker/processors/booking-hold-expiry.processor.ts`** — every 5 min (§7.3).
+**`worker/processors/send-reminders.processor.ts`** — every 15 min with `reminder24hSent/reminder2hSent` flags (§11).
+**`worker/processors/review-request.processor.ts`** — delayed 24h after COMPLETED (§9).
+**`worker/processors/report-export.processor.ts`** — streams DB → CSV → Cloudflare R2, returns presigned URL (§12).
+**`worker/cron.ts`** — `@nestjs/bullmq` cron schedules or node-cron wiring the above intervals. Railway cron triggers the worker — never executes long work in the main API process.
 
 ### 15.7 `src/types/` — shared contracts
-**`types/api.ts`** — `ApiSuccess<T>, ApiError, Paginated<T>` envelope (§13.2). **DO NOT** duplicate Prisma types — import from `@prisma/client`. **`types/domain.ts`** — `BookingAction, CancelPolicy, SlotDTO, PriceBreakdown` used by both routes and worker.
+**`types/api.ts`** — `ApiSuccess<T>, ApiError, Paginated<T>` envelope (§13.2). **DO NOT** duplicate Prisma types — import from `@prisma/client`. **`types/domain.ts`** — `BookingAction, CancelPolicy, SlotDTO, PriceBreakdown` used by both controllers and worker.
 
-### 15.8 `tests/` — proves the workflows
-**`unit/`** — `pricing.test.ts` (multiplier math), `slots.test.ts` (window slicing), `transitions.test.ts` (illegal PENDING→COMPLETED rejected), `validators.test.ts`.
+### 15.8 `test/` — proves the workflows
+**`unit/`** — `pricing.service.test.ts` (multiplier math), `slots.service.test.ts` (window slicing), `transitions.test.ts` (illegal PENDING→COMPLETED rejected), `validators.test.ts`.
 **`integration/`** — `booking-concurrency.test.ts` (10 parallel POST → 1×201 + 9×409, the DoD in §14), `payment-webhook.test.ts` (Stripe signature mock → CONFIRMED), `cancel-refund.test.ts`, `auth.test.ts`.
+**`e2e/`** — NestJS `Test.createTestingModule()` full HTTP tests: `auth.e2e-spec.ts`, `booking.e2e-spec.ts`, `business.e2e-spec.ts`.
 **`load/`** — k6 script `slot-race.js` for staging soak.
 
 ### 15.9 Root configs
-**`.env.example`** — documents every var from ARCHITECTURE §9: `DATABASE_URL (pooled), DIRECT_URL, REDIS_URL, NEXTAUTH_SECRET, STRIPE_*, GOOGLE_MAPS_KEY, SENDGRID_KEY, S3_* , SENTRY_DSN`. No real secrets in repo.
-**`next.config.js`** — `experimental.serverActions` off for API purity, `headers()` for HSTS/CSP, `images.remotePatterns` for S3 logos.
-**`package.json`** — scripts: `dev, build, start, db:migrate, db:seed, worker, test, test:integration, lint, typecheck`. Pins `node>=20`, `prisma, zod, stripe, ioredis, bullmq`.
+**`.env.example`** — documents every var from ARCHITECTURE §9: `DATABASE_URL (pooled), DIRECT_URL, REDIS_URL, JWT_SECRET, STRIPE_*, MAILGUN_API_KEY, MAILGUN_DOMAIN, MNOTIFY_API_KEY, SENTRY_DSN`. No real secrets in repo.
+**`nest-cli.json`** — NestJS CLI config: `compilerOptions.deleteOutDir: true`, `projects` for monorepo if needed.
+**`tsconfig.json`** — TypeScript config: `strict: true`, `paths: { "@/*": ["src/*"] }`.
+**`package.json`** — scripts: `dev, build, start:prod, db:migrate, db:seed, worker, test, test:e2e, test:integration, lint, typecheck`. Pins `node>=20`, `@nestjs/*, prisma, class-validator, stripe, ioredis, bullmq`.
 
-**Build rule:** implement in §14 order. A file is done only when its route validates → authorizes → delegates to module service → covered by a test in `tests/`. If logic lives in `route.ts` instead of `modules/*/service.ts`, it's in the wrong place.
+**Build rule:** implement in §14 order. A feature is done only when its controller validates → authorizes → delegates to service → covered by a test in `test/`. If logic lives in `controller.ts` instead of `service.ts`, it's in the wrong place.
 
 ---
 
-*Last Updated: September 2026 · Status: Backend workflow spec v1.1 — workflows + file map ready for scaffolding.*
+*Last Updated: September 2026 · Status: Backend workflow spec v1.2 — features by role + NestJS scaffold ready for implementation.*
 

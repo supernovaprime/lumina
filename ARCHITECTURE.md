@@ -58,7 +58,7 @@ CarWash is a web-based platform connecting customers with car-wash businesses. T
 ┌──────────────────────────┼──────────────────────────────────────┐
 │                    DATA LAYER                                    │
 │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌──────────┐ │
-│  │ PostgreSQL │  │   Redis    │  │ Cloudflare │  │  Malgun  │ │
+│  │ PostgreSQL │  │   Redis    │  │ Cloudflare │  │ Mailgun │ │
 │  │ (Supabase  │  │ (Upstash   │  │ R2 (free)  │  │  (Email) │ │
 │  │  Free)     │  │  Free)     │  │ 10GB free  │  │          │ │
 │  └────────────┘  └────────────┘  └────────────┘  └──────────┘ │
@@ -95,7 +95,7 @@ CarWash is a web-based platform connecting customers with car-wash businesses. T
 | Primary Database | **PostgreSQL 15+** (Supabase) | ACID compliance, PostGIS, full-text search | Free (500MB) |
 | Cache | **Redis 7+** (Upstash) | Session storage, rate limiting, real-time data | Free (10K cmds/day) |
 | File Storage | **Cloudflare R2** | Business images, receipts, 10GB free, no egress fees | Free (10GB) |
-| Email | **Malgun** | Transactional email service | Free |
+| Email | **Mailgun** | Transactional email service | Free |
 | SMS | **MNotify** | SMS notifications and reminders | Free |
 
 ### Infrastructure
@@ -865,33 +865,41 @@ enum ServiceCategory {
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        CDN (Cloudflare)                         │
+│                        CDN (Cloudflare Free)                     │
 │                    Static Assets + DDoS Protection              │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
 ┌──────────────────────────┼──────────────────────────────────────┐
-│                     VERCEL / AWS                                │
-│  ┌───────────────────────▼───────────────────────┐             │
-│  │           Next.js Application                 │             │
-│  │        (Serverless Functions)                 │             │
-│  └───────────────────────┬───────────────────────┘             │
-│                          │                                      │
-│  ┌───────────────────────▼───────────────────────┐             │
-│  │              Vercel Edge Functions            │             │
-│  │           (Middleware, Auth, ISR)              │             │
-│  └───────────────────────┬───────────────────────┘             │
+│                                                              │
+│  ┌───────────────────────────────────┐  ┌───────────────────────────────────┐
+│  │        FRONTEND                    │  │        BACKEND                     │
+│  │   ┌───────────────────────────┐   │  │   ┌───────────────────────────┐   │
+│  │   │     Next.js 14+ App       │   │  │   │     NestJS Backend        │   │
+│  │   │  SSR/SSG + React + Tailwind│   │  │   │  Controllers + Services   │   │
+│  │   └───────────────────────────┘   │  │   │  Modules + Providers      │   │
+│  │   ┌───────────────────────────┐   │  │   └───────────────────────────┘   │
+│  │   │   Vercel (Free Tier)      │   │  │   ┌───────────────────────────┐   │
+│  │   │   Hosting + ISR + Edge    │   │  │   │   Railway (Free Tier)     │   │
+│  │   └───────────────────────────┘   │  │   │   Container + Cron Jobs   │   │
+│  └───────────────────────────────────┘  │   └───────────────────────────┘   │
+│                                          └───────────────────────────────────┘
 └──────────────────────────┼──────────────────────────────────────┘
                            │
 ┌──────────────────────────┼──────────────────────────────────────┐
-│                    DATABASE TIER                                │
+│                    DATABASE TIER                                 │
 │  ┌───────────────────────▼───────────────────────┐             │
-│  │         PostgreSQL (Supabase / RDS)           │             │
-│  │              Primary + Read Replica            │             │
+│  │         PostgreSQL (Supabase Free)             │             │
+│  │              500MB storage                     │             │
 │  └───────────────────────┬───────────────────────┘             │
 │                          │                                      │
 │  ┌───────────────────────▼───────────────────────┐             │
-│  │            Redis (Upstash / ElastiCache)       │             │
-│  │              Cache + Sessions + Queue           │             │
+│  │            Redis (Upstash Free)                │             │
+│  │              10K commands/day                  │             │
+│  └───────────────────────────────────────────────┘             │
+│                          │                                      │
+│  ┌───────────────────────▼───────────────────────┐             │
+│  │         Cloudflare R2 (Free)                   │             │
+│  │              10GB storage, no egress           │             │
 │  └───────────────────────────────────────────────┘             │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -899,33 +907,33 @@ enum ServiceCategory {
 ### Environment Configuration
 
 ```env
-# Database
-DATABASE_URL="postgresql://user:pass@host:5432/carwash"
-REDIS_URL="redis://default:pass@host:6379"
+# Frontend (Next.js)
+NEXT_PUBLIC_API_URL="https://api.carwash.com"
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_..."
 
-# Authentication
-NEXTAUTH_URL="https://carwash.com"
-NEXTAUTH_SECRET="your-secret-key"
-GOOGLE_CLIENT_ID=""
-GOOGLE_CLIENT_SECRET=""
+# Backend (NestJS)
+DATABASE_URL="postgresql://user:pass@host:5432/carwash"
+DIRECT_URL="postgresql://user:pass@host:5432/carwash"
+REDIS_URL="redis://default:pass@host:6379"
+JWT_SECRET="your-jwt-secret"
 
 # Payment (Stripe)
 STRIPE_SECRET_KEY="sk_live_..."
-STRIPE_PUBLISHABLE_KEY="pk_live_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
 
-# Maps
-GOOGLE_MAPS_API_KEY="..."
-
-# Email (SendGrid)
-SENDGRID_API_KEY="SG...."
+# Email (Mailgun)
+MAILGUN_API_KEY="key-your-mailgun-api-key"
+MAILGUN_DOMAIN="mg.yourdomain.com"
 FROM_EMAIL="noreply@carwash.com"
 
-# Storage (S3)
-AWS_ACCESS_KEY_ID=""
-AWS_SECRET_ACCESS_KEY=""
-AWS_BUCKET_NAME="carwash-assets"
-AWS_REGION="us-east-1"
+# SMS (MNotify)
+MNOTIFY_API_KEY="your-mnotify-key"
+
+# Storage (Cloudflare R2)
+R2_ACCOUNT_ID=""
+R2_ACCESS_KEY_ID=""
+R2_SECRET_ACCESS_KEY=""
+R2_BUCKET_NAME="carwash-assets"
 
 # Monitoring
 SENTRY_DSN="https://..."
@@ -955,7 +963,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
 
-  deploy:
+  deploy-frontend:
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -966,6 +974,16 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
+
+  deploy-backend:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: carwash-api
 ```
 
 ## 10. Performance Optimization
@@ -1015,14 +1033,14 @@ CREATE INDEX idx_reviews_business ON reviews(business_id, created_at DESC);
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    OBSERVABILITY                             │
+│                    OBSERVABILITY (All Free Tier)             │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │   Sentry    │  │ Prometheus  │  │   Grafana   │        │
-│  │   (Errors)  │  │ (Metrics)   │  │ (Dashboards)│        │
+│  │   Sentry    │  │  Railway    │  │  Vercel     │        │
+│  │   (Errors)  │  │  (Logs)     │  │  Analytics  │        │
 │  └─────────────┘  └─────────────┘  └─────────────┘        │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │    Vercel   │  │  PostgreSQL │  │    Redis    │        │
-│  │  Analytics  │  │   Logs      │  │   Metrics   │        │
+│  │  Supabase   │  │   Upstash   │  │  Cloudflare │        │
+│  │  Dashboard  │  │  Dashboard  │  │  Analytics  │        │
 │  └─────────────┘  └─────────────┘  └─────────────┘        │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -1107,33 +1125,50 @@ CREATE INDEX idx_reviews_business ON reviews(business_id, created_at DESC);
 
 ## 14. Cost Estimation (Monthly)
 
-### MVP Phase (1,000 users)
+### MVP Phase (1,000 users) — $0/month
 
-| Service | Provider | Cost |
-|---------|----------|------|
-| Hosting | Vercel Pro | $20 |
-| Database | Supabase Pro | $25 |
-| Redis | Upstash | $10 |
-| Storage | AWS S3 | $5 |
-| Email | SendGrid | $15 |
-| Monitoring | Sentry | $26 |
-| Maps | Google Maps | $50 |
-| Domain + SSL | Cloudflare | $15 |
-| **Total** | | **~$166** |
+| Service | Provider | Tier | Cost |
+|---------|----------|------|------|
+| Frontend Hosting | Vercel | Free | $0 |
+| Backend Hosting | Railway | Free (500 hrs/mo) | $0 |
+| Database | Supabase | Free (500MB) | $0 |
+| Cache | Upstash | Free (10K cmds/day) | $0 |
+| File Storage | Cloudflare R2 | Free (10GB) | $0 |
+| Email | Mailgun | Free | $0 |
+| SMS | MNotify | Free | $0 |
+| Maps | Leaflet + OpenStreetMap | Free (open-source) | $0 |
+| Monitoring | Sentry | Free (5K errors/mo) | $0 |
+| CDN | Cloudflare | Free | $0 |
+| CI/CD | GitHub Actions | Free (2K mins/mo) | $0 |
+| **Total** | | | **$0** |
 
-### Growth Phase (10,000 users)
+### Growth Phase (10,000 users) — ~$50/month
 
-| Service | Provider | Cost |
-|---------|----------|------|
-| Hosting | Vercel Pro | $20 |
-| Database | Supabase Pro | $25 |
-| Redis | Upstash | $30 |
-| Storage | AWS S3 | $20 |
-| Email | SendGrid | $50 |
-| Monitoring | Sentry | $80 |
-| Maps | Google Maps | $200 |
-| CDN | Cloudflare Pro | $25 |
-| **Total** | | **~$450** |
+| Service | Provider | Tier | Cost |
+|---------|----------|------|------|
+| Frontend Hosting | Vercel | Free | $0 |
+| Backend Hosting | Railway | Free (500 hrs/mo) | $0 |
+| Database | Supabase | Free (500MB) | $0 |
+| Cache | Upstash | Pro | $10 |
+| File Storage | Cloudflare R2 | Pay-as-you-go | $5 |
+| Email | Mailgun | Pay-as-you-go | $0-15 |
+| SMS | MNotify | Pay-as-you-go | $10 |
+| Maps | Leaflet + OpenStreetMap | Free | $0 |
+| Monitoring | Sentry | Free (5K errors/mo) | $0 |
+| CDN | Cloudflare | Free | $0 |
+| CI/CD | GitHub Actions | Free (2K mins/mo) | $0 |
+| **Total** | | | **~$40** |
+
+### When to Upgrade
+
+| Signal | Current Limit | Upgrade To |
+|--------|---------------|------------|
+| Vercel: >100GB bandwidth/mo | Free tier | Vercel Pro ($20) |
+| Railway: >500 hrs/mo | Free tier | Railway Pro ($5) |
+| Supabase: >500MB storage | Free tier | Supabase Pro ($25) |
+| Upstash: >10K cmds/day | Free tier | Upstash Pay-as-you-go |
+| R2: >10GB storage | Free tier | R2 Pay-as-you-go ($0.015/GB) |
+| GitHub Actions: >2K mins/mo | Free tier | GitHub Pro ($4) |
 
 ## 15. Implementation Roadmap
 
