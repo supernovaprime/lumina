@@ -5,6 +5,8 @@ import { ServiceController } from './service.controller';
 import { ServiceService } from './service.service';
 import { AvailabilityController } from './availability.controller';
 import { AvailabilityService } from './availability.service';
+import { SlotGeneratorService } from './slot-generator.service';
+import { SlotReconcilerService } from './slot-reconciler.service';
 import { BookingController } from './booking.controller';
 import { BookingService } from './booking.service';
 import { ReviewController } from './review.controller';
@@ -28,6 +30,8 @@ import { CacheModule } from '../libs/cache/cache.module';
     BusinessService,
     ServiceService,
     AvailabilityService,
+    SlotGeneratorService,
+    SlotReconcilerService,
     BookingService,
     ReviewService,
     AnalyticsService,
@@ -36,6 +40,8 @@ import { CacheModule } from '../libs/cache/cache.module';
     BusinessService,
     ServiceService,
     AvailabilityService,
+    SlotGeneratorService,
+    SlotReconcilerService,
     BookingService,
     ReviewService,
     AnalyticsService,

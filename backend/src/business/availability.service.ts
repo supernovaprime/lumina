@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { CacheService } from '../libs/cache/cache.service';
+import { SlotGeneratorService } from './slot-generator.service';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class AvailabilityService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
+    private readonly slotGenerator: SlotGeneratorService,
   ) {}
 
   async getTemplate(businessId: string) {
@@ -19,6 +21,8 @@ export class AvailabilityService {
   }
 
   async updateTemplate(businessId: string, dto: UpdateAvailabilityDto) {
+    this.validateTemplate(dto);
+
     const template = await this.prisma.availabilityTemplate.upsert({
       where: { businessId },
       update: {
@@ -38,7 +42,7 @@ export class AvailabilityService {
       },
     });
 
-    await this.cache.invalidate(`slots:${businessId}:*`);
+    await this.slotGenerator.generateSlots(businessId, 30);
 
     return template;
   }
@@ -47,6 +51,24 @@ export class AvailabilityService {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
       throw new BadRequestException('Invalid date format');
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + 30);
+
+    if (date < today || date > maxDate) {
+      throw new BadRequestException('Date must be within the next 30 days');
+    }
+
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { isVerified: true, isActive: true },
+    });
+
+    if (!business || !business.isActive || !business.isVerified) {
+      throw new NotFoundException('Business not found');
     }
 
     const cacheKey = `slots:${businessId}:${dateStr}`;
@@ -91,6 +113,33 @@ export class AvailabilityService {
 
     await this.cache.set(cacheKey, result, 60);
     return result;
+  }
+
+  private validateTemplate(dto: UpdateAvailabilityDto) {
+    const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    for (const day of days) {
+      const windows = dto.weekly[day] || [];
+      for (const [start, end] of windows) {
+        const startMin = this.timeToMinutes(start);
+        const endMin = this.timeToMinutes(end);
+
+        if (startMin >= endMin) {
+          throw new BadRequestException(`Invalid time window for ${day}: start must be before end`);
+        }
+
+        const windowLength = endMin - startMin;
+        if (dto.slotLengthMinutes > windowLength) {
+          throw new BadRequestException(
+            `Slot length (${dto.slotLengthMinutes}min) exceeds window length (${windowLength}min) for ${day}`,
+          );
+        }
+
+        if (windowLength % (dto.slotLengthMinutes + dto.bufferMinutes) !== 0 &&
+            windowLength < dto.slotLengthMinutes) {
+          // Not an exact divide, but that's OK — trailing time is unused
+        }
+      }
+    }
   }
 
   private timeToMinutes(time: string): number {
