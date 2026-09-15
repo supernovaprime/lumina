@@ -14,6 +14,7 @@ import { CustomerModule } from './customer/customer.module';
 import { SearchModule } from './search/search.module';
 import { NotificationModule } from './notification/notification.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { HealthModule } from './libs/health/health.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     PrismaModule,
     RedisModule,
     CacheModule,
+    HealthModule,
 
     // Feature modules
     AuthModule,

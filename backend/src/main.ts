@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './libs/common/filters/http-exception.filter';
 import { TransformInterceptor } from './libs/common/interceptors/transform.interceptor';
+import { HealthService } from './libs/health/health.service';
 
 function printBanner() {
   const bold = '\x1b[1m';
@@ -106,6 +107,10 @@ async function bootstrap() {
   logger.log(`${dim}Environment${reset}  ${nodeEnv === 'production' ? green : yellow}${nodeEnv}${reset}`);
   logger.log(`${dim}PID${reset}         ${process.pid}`);
   logger.log(`${dim}Memory${reset}      ${dim}${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1)}MB${reset}`);
-  console.log('');
+
+  // Health check
+  const health = app.get(HealthService);
+  const report = await health.checkAll();
+  health.logHealthReport(report);
 }
 bootstrap();
