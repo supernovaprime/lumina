@@ -1,6 +1,7 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { SlotReconcilerService } from '../../business/slot-reconciler.service';
 
+@Injectable()
 export class ReconcileSlotsProcessor {
   private readonly logger = new Logger(ReconcileSlotsProcessor.name);
 

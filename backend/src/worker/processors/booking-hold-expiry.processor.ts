@@ -1,6 +1,7 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../libs/prisma/prisma.service';
 
+@Injectable()
 export class BookingHoldExpiryProcessor {
   private readonly logger = new Logger(BookingHoldExpiryProcessor.name);
 

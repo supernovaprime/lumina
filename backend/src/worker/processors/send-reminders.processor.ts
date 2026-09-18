@@ -1,7 +1,8 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../libs/prisma/prisma.service';
 import { NotificationService } from '../../notification/notification.service';
 
+@Injectable()
 export class SendRemindersProcessor {
   private readonly logger = new Logger(SendRemindersProcessor.name);
 

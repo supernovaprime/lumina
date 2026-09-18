@@ -1,7 +1,8 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../libs/prisma/prisma.service';
 import { SmsService } from '../../libs/sms/sms.service';
 
+@Injectable()
 export class SendSmsProcessor {
   private readonly logger = new Logger(SendSmsProcessor.name);
 

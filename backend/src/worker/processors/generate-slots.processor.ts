@@ -1,6 +1,7 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { SlotGeneratorService } from '../../business/slot-generator.service';
 
+@Injectable()
 export class GenerateSlotsProcessor {
   private readonly logger = new Logger(GenerateSlotsProcessor.name);
 
