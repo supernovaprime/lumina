@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { EmailService } from '../libs/email/email.service';
+import { SmsService } from '../libs/sms/sms.service';
 
 export type NotificationType =
   | 'booking-created'
@@ -22,6 +23,7 @@ export class NotificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
+    private readonly sms: SmsService,
   ) {}
 
   async enqueue(
@@ -65,6 +67,31 @@ export class NotificationService {
           where: { id: notification.id },
           data: { status: 'SENT', sentAt: new Date() },
         });
+      } else if (channel === 'SMS') {
+        const phone = user.phone;
+        if (phone) {
+          const result = await this.sms.send({
+            to: phone,
+            message: `${template.subject}\n\n${template.body}`,
+          });
+          if (result.success) {
+            await this.prisma.notification.update({
+              where: { id: notification.id },
+              data: { status: 'SENT', sentAt: new Date() },
+            });
+          } else {
+            await this.prisma.notification.update({
+              where: { id: notification.id },
+              data: { status: 'FAILED' },
+            });
+          }
+        } else {
+          this.logger.warn(`No phone number for user ${userId}, SMS not sent`);
+          await this.prisma.notification.update({
+            where: { id: notification.id },
+            data: { status: 'FAILED' },
+          });
+        }
       }
     } catch (err: any) {
       this.logger.error(`Failed to send notification ${notification.id}: ${err.message}`);

@@ -2,11 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationService } from './notification.service';
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { EmailService } from '../libs/email/email.service';
+import { SmsService } from '../libs/sms/sms.service';
 
 describe('NotificationService', () => {
   let service: NotificationService;
   let prisma: any;
   let email: any;
+  let sms: any;
 
   beforeEach(async () => {
     prisma = {
@@ -15,12 +17,14 @@ describe('NotificationService', () => {
       booking: { findUnique: jest.fn() },
     };
     email = { send: jest.fn() };
+    sms = { send: jest.fn().mockResolvedValue({ success: true }) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationService,
         { provide: PrismaService, useValue: prisma },
         { provide: EmailService, useValue: email },
+        { provide: SmsService, useValue: sms },
       ],
     }).compile();
 
@@ -56,6 +60,52 @@ describe('NotificationService', () => {
       await service.enqueue('booking-created', 'user1', { businessName: 'Test' });
       expect(prisma.notification.update).toHaveBeenCalledWith({
         where: { id: 'n1' },
+        data: { status: 'FAILED' },
+      });
+    });
+
+    it('sends SMS when channel is SMS', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user1', email: 'test@test.com', phone: '+233240000000',
+      });
+      prisma.notification.create.mockResolvedValue({ id: 'n2' });
+      sms.send.mockResolvedValue({ success: true });
+      prisma.notification.update.mockResolvedValue({});
+
+      const result = await service.enqueue('reminder-24h', 'user1', { businessName: 'Test' }, 'SMS');
+      expect(result).toBe('n2');
+      expect(sms.send).toHaveBeenCalledWith(expect.objectContaining({ to: '+233240000000' }));
+      expect(prisma.notification.update).toHaveBeenCalledWith({
+        where: { id: 'n2' },
+        data: { status: 'SENT', sentAt: expect.any(Date) },
+      });
+    });
+
+    it('marks FAILED when SMS send fails', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user1', email: 'test@test.com', phone: '+233240000000',
+      });
+      prisma.notification.create.mockResolvedValue({ id: 'n3' });
+      sms.send.mockResolvedValue({ success: false });
+      prisma.notification.update.mockResolvedValue({});
+
+      await service.enqueue('reminder-24h', 'user1', { businessName: 'Test' }, 'SMS');
+      expect(prisma.notification.update).toHaveBeenCalledWith({
+        where: { id: 'n3' },
+        data: { status: 'FAILED' },
+      });
+    });
+
+    it('marks FAILED when user has no phone for SMS', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user1', email: 'test@test.com', phone: null,
+      });
+      prisma.notification.create.mockResolvedValue({ id: 'n4' });
+      prisma.notification.update.mockResolvedValue({});
+
+      await service.enqueue('reminder-24h', 'user1', { businessName: 'Test' }, 'SMS');
+      expect(prisma.notification.update).toHaveBeenCalledWith({
+        where: { id: 'n4' },
         data: { status: 'FAILED' },
       });
     });

@@ -9,10 +9,10 @@
 
 | Layer | Status | % |
 |-------|--------|---|
-| Backend (NestJS) | Core modules built, unit-tested, cron scheduling, PostGIS, cursor pagination, concurrency tested, Stripe verified, hold expiry wired | **90%** |
+| Backend (NestJS) | Core modules built, unit-tested, cron scheduling, PostGIS, cursor pagination, concurrency tested, Stripe verified, hold expiry wired, MNotify SMS, notification retry cron | **95%** |
 | Frontend (Next.js) | Not started | **0%** |
 | Infrastructure / DevOps | .env configured, no CI/CD or deployment | **15%** |
-| **Overall** | | **39%** |
+| **Overall** | | **42%** |
 
 ---
 
@@ -165,10 +165,11 @@
 |------|--------|---|
 | Email templates (11 types) | ✅ NotificationService (added password-reset, email-verification) | 90% |
 | Enqueue pattern | ✅ | 80% |
-| Worker send (email) | ⚠️ Queue + processor defined, no cron | 40% |
-| Worker send (SMS) | ❌ SmsService is stub | 10% |
-| Reminder cron (24h, 2h) | ⚠️ Queue defined, no cron | 20% |
-| Review request (24h delay) | ⚠️ Queue defined, no cron | 20% |
+| Worker send (email) | ✅ SendEmailProcessor + notification retry cron (15min) picks up FAILED → retries | 100% |
+| Worker send (SMS) | ✅ SmsService MNotify integration + SendSmsProcessor + notification retry cron | 100% |
+| Reminder cron (24h, 2h) | ✅ SendRemindersProcessor wired to cron (hourly, 15min window) | 100% |
+| Review request (24h delay) | ✅ ReviewRequestProcessor with dedup check (skips if notification already sent) | 100% |
+| Notification retry (FAILED) | ✅ WorkerCronService.startNotificationRetry() — polls FAILED every 15min, retries EMAIL/SMS | 100% |
 
 ### §12 — Admin Workflows
 
@@ -221,10 +222,10 @@
 | src/payment/ | ✅ Module + controller + service + DTOs | 70% |
 | src/review/ | ✅ Module + controller + service + 3 DTOs — respond endpoint added (4 tests) | 100% |
 | src/search/ | ✅ Module + controller + service | 85% |
-| src/notification/ | ✅ Module + service + 11 templates | 75% |
+| src/notification/ | ✅ Module + service + 11 templates + SMS channel support | 100% |
 | src/admin/ | ✅ Module + controller + 4 services + DTOs + R2 + CSV integration | 95% |
 | src/webhooks/ | ✅ Module + controller — Stripe signature verification via SDK constructEvent + raw body (8 tests) | 100% |
-| src/worker/ | ✅ Module + WorkerCronService + queues + 6 processors + 12 cron tests | 90% |
+| src/worker/ | ✅ Module + WorkerCronService + 7 processors (incl. SendSmsProcessor) + SmsModule import | 100% |
 | src/types/ | ✅ api.ts + domain.ts | 90% |
 | src/libs/prisma/ | ✅ Global module + service | 95% |
 | src/libs/redis/ | ✅ Global module + service (graceful) | 90% |
@@ -233,7 +234,7 @@
 | src/libs/common/filters/ | ✅ HttpExceptionFilter | 90% |
 | src/libs/common/decorators/ | ✅ CurrentUser + Roles | 90% |
 | src/libs/email/ | ✅ Mailgun service | 80% |
-| src/libs/sms/ | ⚠️ Stub only | 15% |
+| src/libs/sms/ | ✅ MNotify API integration — send(), isConfigured, ConfigService env vars (7 tests) | 100% |
 | src/libs/storage/ | ✅ StorageService + module + spec (8 tests) | 90% |
 | src/libs/csv/ | ✅ CsvService + module + spec (10 tests) | 100% |
 | src/libs/r2/ | ✅ R2Service + module + spec (5 tests) | 90% |
@@ -321,11 +322,11 @@
 | SMS | 1 | 1 | ✅ All passing |
 | Audit | 1 | 2 | ✅ All passing |
 | Worker (cron scheduling) | 1 | 12 | ✅ All passing |
-| **Total** | **47** | **443** | **✅ 0 failures** |
+| **Total** | **50** | **472** | **✅ 0 failures** |
 
 | Test Type | Status |
 |-----------|--------|
-| Unit tests (in src/) | ✅ 443 passing |
+| Unit tests (in src/) | ✅ 472 passing |
 | Integration tests | ❌ Not created |
 | E2E tests (HTTP) | ❌ Not created |
 | Load tests (k6) | ❌ Not created |
@@ -355,8 +356,8 @@
 | Per-route throttling on auth endpoints | `auth.controller.ts` — @Throttle decorators (5/min register/login, 3/min forgot-password) |
 | Auth tests updated | `auth.service.spec.ts` (36 tests: all rate-limit scenarios covered) |
 | Login attempt rate limiting marked complete | `PROGRESS.md` (§1: 0% → 100%, §13: 20% → 80%) |
-| WorkerCronService | `src/worker/worker-cron.service.ts` — 5 cron jobs wired via setInterval + OnModuleInit (zero-cost, no new deps): slot generation (daily), slot reconciliation (hourly), booking hold expiry (5min), reminders (hourly), review requests (daily) |
-| WorkerCronService tests | `src/worker/worker-cron.service.spec.ts` (12 tests: init/destroy lifecycle, slot gen, slot reconciliation, hold expiry, 24h/2h reminders, review requests, error handling) |
+| WorkerCronService | `src/worker/worker-cron.service.ts` — 6 cron jobs: slot generation (daily), slot reconciliation (hourly), booking hold expiry (5min), reminders via SendRemindersProcessor (hourly), review requests via ReviewRequestProcessor (daily), notification retry (15min) |
+| WorkerCronService tests | `src/worker/worker-cron.service.spec.ts` (16 tests: init/destroy lifecycle, slot gen, reconciliation, hold expiry, reminders, review requests, notification retry for email/SMS, error handling) |
 | WorkerModule updated | `src/worker/worker.module.ts` — imports BusinessModule, registers WorkerCronService |
 | AppModule updated | `src/app.module.ts` — imports WorkerModule (cron scheduling starts on app boot) |
 | Worker cron scheduling marked complete | `PROGRESS.md` (§4: 30% → 100%, §13 background jobs: 35% → 100%) |
@@ -375,6 +376,15 @@
 | Stripe signature + hold expiry marked complete | `PROGRESS.md` (§7: Stripe 0%→100%, Hold expiry 30%→100%) |
 | Business review response fully implemented | `src/review/review.service.ts` — added `respond()` with ownership check + no-duplicate guard (ConflictException). `src/review/review.controller.ts` — added `POST /reviews/:id/respond` (BUSINESS role). `src/review/dto/respond-to-review.dto.ts` — validation DTO. Fixed `findByBusiness` limit param passthrough. 4 new tests |
 | Review response marked complete | `PROGRESS.md` (§9 Business response 50%→100%, Review CRUD 80%→100%) |
+| SmsService MNotify integration | `src/libs/sms/sms.service.ts` — HTTP POST to `api.mnotify.com/api/v1/sms/send`, Bearer token auth, `isConfigured` getter, success/failure result object. ConfigService reads `MNOTIFY_API_KEY` + `MNOTIFY_SENDER_ID`. 7 tests |
+| SendSmsProcessor | `src/worker/processors/send-sms.processor.ts` — reads PENDING notification, looks up user phone, calls SmsService, marks SENT/FAILED. 6 tests |
+| SendRemindersProcessor fixed | `src/worker/processors/send-reminders.processor.ts` — now actually sends reminders via NotificationService.enqueue() (was just logging). Includes service name in template data. 5 tests |
+| ReviewRequestProcessor dedup | `src/worker/processors/review-request.processor.ts` — added `processPending()` that checks for existing `review-request` notification before sending (prevents duplicate review requests). 6 tests |
+| Notification retry cron | `src/worker/worker-cron.service.ts` — new `startNotificationRetry()` polls FAILED notifications every 15min, retries via SendEmailProcessor/SendSmsProcessor. 4 tests |
+| NotificationService SMS channel | `src/notification/notification.service.ts` — `enqueue()` now handles `channel: 'SMS'` via SmsService. NotificationModule imports SmsModule |
+| WorkerCronService refactored | Delegates to processors: SendRemindersProcessor for reminders, ReviewRequestProcessor for review requests. 6 cron jobs total (was 5). 16 tests |
+| WorkerModule updated | `src/worker/worker.module.ts` — added SmsModule import, SendSmsProcessor registration |
+| Notifications marked complete | `PROGRESS.md` (§11: email 40%→100%, SMS 10%→100%, reminders 20%→100%, review requests 20%→100%) |
 
 ---
 
@@ -382,9 +392,9 @@
 
 ### Priority 1 — Backend Hardening
 1. ~~**Stripe webhook signature verification**~~ — ✅ Stripe SDK constructEvent + raw body capture + ConfigService (8 tests)
-2. ~~**Background worker cron scheduling**~~ — ✅ WorkerCronService wired (5 cron jobs: slots, reconciliation, hold expiry, reminders, reviews)
+2. ~~**Background worker cron scheduling**~~ — ✅ WorkerCronService wired (6 cron jobs: slots, reconciliation, hold expiry, reminders, reviews, notification retry)
 3. ~~**Hold expiry (unpaid PENDING cleanup)**~~ — ✅ BookingHoldExpiryProcessor wired to cron (5min interval, 15min hold)
-4. **MNotify SMS integration** — stub only
+4. ~~**MNotify SMS integration**~~ — ✅ SmsService + SendSmsProcessor + NotificationService SMS channel + retry cron (7 tests)
 5. **Per-route rate limiting** — ✅ Auth endpoints have @Throttle; booking has 20/min. Other routes still global-only
 6. **Prisma migrations** — need to unpause Supabase and run
 7. **prisma/seed.ts** — dev seed data not created
@@ -414,4 +424,4 @@
 
 ---
 
-*Backend unit tests: 47 suites / 443 tests / 0 failures · TypeScript: clean · Overall: 40%*
+*Backend unit tests: 50 suites / 472 tests / 0 failures · TypeScript: clean · Overall: 42%*

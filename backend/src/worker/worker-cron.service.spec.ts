@@ -3,30 +3,37 @@ import { WorkerCronService } from './worker-cron.service';
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { SlotGeneratorService } from '../business/slot-generator.service';
 import { SlotReconcilerService } from '../business/slot-reconciler.service';
-import { NotificationService } from '../notification/notification.service';
 import { BookingHoldExpiryProcessor } from './processors/booking-hold-expiry.processor';
+import { SendEmailProcessor } from './processors/send-email.processor';
+import { SendSmsProcessor } from './processors/send-sms.processor';
+import { SendRemindersProcessor } from './processors/send-reminders.processor';
+import { ReviewRequestProcessor } from './processors/review-request.processor';
 
 describe('WorkerCronService', () => {
   let service: WorkerCronService;
   let prisma: any;
   let slotGenerator: any;
   let slotReconciler: any;
-  let notifications: any;
   let holdExpiryProcessor: any;
+  let emailProcessor: any;
+  let smsProcessor: any;
+  let remindersProcessor: any;
+  let reviewRequestProcessor: any;
 
   beforeEach(async () => {
     prisma = {
       business: { findMany: jest.fn().mockResolvedValue([]) },
       booking: { findMany: jest.fn().mockResolvedValue([]) },
+      notification: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn(),
     };
     slotGenerator = { generateSlots: jest.fn().mockResolvedValue({ created: 0 }) };
     slotReconciler = { reconcileFutureSlots: jest.fn().mockResolvedValue({ deleted: 0, orphaned: 0 }) };
-    notifications = {
-      enqueue: jest.fn().mockResolvedValue('notif-1'),
-      notifyReviewRequest: jest.fn().mockResolvedValue(undefined),
-    };
     holdExpiryProcessor = { process: jest.fn().mockResolvedValue(undefined) };
+    emailProcessor = { process: jest.fn().mockResolvedValue(undefined) };
+    smsProcessor = { process: jest.fn().mockResolvedValue(undefined) };
+    remindersProcessor = { process: jest.fn().mockResolvedValue({ sent24h: 0, sent2h: 0 }) };
+    reviewRequestProcessor = { processPending: jest.fn().mockResolvedValue(0) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -34,8 +41,11 @@ describe('WorkerCronService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: SlotGeneratorService, useValue: slotGenerator },
         { provide: SlotReconcilerService, useValue: slotReconciler },
-        { provide: NotificationService, useValue: notifications },
         { provide: BookingHoldExpiryProcessor, useValue: holdExpiryProcessor },
+        { provide: SendEmailProcessor, useValue: emailProcessor },
+        { provide: SendSmsProcessor, useValue: smsProcessor },
+        { provide: SendRemindersProcessor, useValue: remindersProcessor },
+        { provide: ReviewRequestProcessor, useValue: reviewRequestProcessor },
       ],
     }).compile();
 
@@ -48,9 +58,9 @@ describe('WorkerCronService', () => {
   });
 
   describe('onModuleInit', () => {
-    it('should start all cron timers', () => {
+    it('should start all 6 cron timers', () => {
       service.onModuleInit();
-      expect((service as any).timers.length).toBe(5);
+      expect((service as any).timers.length).toBe(6);
     });
   });
 
@@ -64,10 +74,7 @@ describe('WorkerCronService', () => {
 
   describe('slot generation', () => {
     it('should run slot generation immediately on init', async () => {
-      prisma.business.findMany.mockResolvedValue([
-        { id: 'biz1' },
-        { id: 'biz2' },
-      ]);
+      prisma.business.findMany.mockResolvedValue([{ id: 'biz1' }, { id: 'biz2' }]);
 
       service.onModuleInit();
 
@@ -129,74 +136,84 @@ describe('WorkerCronService', () => {
   });
 
   describe('reminders', () => {
-    it('should send 24h reminders for upcoming bookings', async () => {
-      const booking = {
-        id: 'booking-1',
-        date: new Date(),
-        customerId: 'user-1',
-        business: { name: 'Wash Co' },
-      };
-      prisma.booking.findMany.mockImplementation(async (args: any) => {
-        if (args?.where?.status === 'PENDING') return [];
-        if (args?.where?.status === 'COMPLETED') return [];
-        if (args?.include?.customer) return [booking];
-        return [];
-      });
-
+    it('should delegate to remindersProcessor', async () => {
       service.onModuleInit();
 
-      await new Promise((r) => setTimeout(r, 100));
-      expect(notifications.enqueue).toHaveBeenCalledWith(
-        'reminder-24h',
-        'user-1',
-        expect.objectContaining({ bookingId: 'booking-1' }),
-      );
+      await new Promise((r) => setTimeout(r, 50));
+      expect(remindersProcessor.process).toHaveBeenCalled();
     });
 
-    it('should send 2h reminders for soon bookings', async () => {
-      const booking = {
-        id: 'booking-2',
-        date: new Date(),
-        customerId: 'user-2',
-        business: { name: 'Quick Wash' },
-      };
-      prisma.booking.findMany.mockImplementation(async (args: any) => {
-        if (args?.where?.status === 'PENDING') return [];
-        if (args?.where?.status === 'COMPLETED') return [];
-        if (args?.include?.customer) return [booking];
-        return [];
-      });
+    it('should handle processor errors gracefully', async () => {
+      remindersProcessor.process.mockRejectedValue(new Error('DB down'));
 
       service.onModuleInit();
 
-      await new Promise((r) => setTimeout(r, 100));
-      expect(notifications.enqueue).toHaveBeenCalledWith(
-        'reminder-2h',
-        'user-2',
-        expect.objectContaining({ bookingId: 'booking-2' }),
-      );
+      await new Promise((r) => setTimeout(r, 50));
+      expect(remindersProcessor.process).toHaveBeenCalled();
     });
   });
 
   describe('review requests', () => {
-    it('should send review requests for completed bookings', async () => {
-      prisma.booking.findMany.mockResolvedValue([
-        { id: 'booking-1', customerId: 'user-1' },
+    it('should delegate to reviewRequestProcessor.processPending', async () => {
+      service.onModuleInit();
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(reviewRequestProcessor.processPending).toHaveBeenCalled();
+    });
+
+    it('should handle processor errors gracefully', async () => {
+      reviewRequestProcessor.processPending.mockRejectedValue(new Error('DB down'));
+
+      service.onModuleInit();
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(reviewRequestProcessor.processPending).toHaveBeenCalled();
+    });
+  });
+
+  describe('notification retry', () => {
+    it('should retry failed email notifications', async () => {
+      prisma.notification.findMany.mockResolvedValue([
+        { id: 'n1', channel: 'EMAIL', status: 'FAILED' },
       ]);
 
       service.onModuleInit();
 
       await new Promise((r) => setTimeout(r, 50));
-      expect(notifications.notifyReviewRequest).toHaveBeenCalledWith('booking-1');
+      expect(emailProcessor.process).toHaveBeenCalledWith('n1');
     });
 
-    it('should handle no completed bookings', async () => {
-      prisma.booking.findMany.mockResolvedValue([]);
+    it('should retry failed SMS notifications', async () => {
+      prisma.notification.findMany.mockResolvedValue([
+        { id: 'n2', channel: 'SMS', status: 'FAILED' },
+      ]);
 
       service.onModuleInit();
 
       await new Promise((r) => setTimeout(r, 50));
-      expect(notifications.notifyReviewRequest).not.toHaveBeenCalled();
+      expect(smsProcessor.process).toHaveBeenCalledWith('n2');
+    });
+
+    it('should skip when no failed notifications', async () => {
+      prisma.notification.findMany.mockResolvedValue([]);
+
+      service.onModuleInit();
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(emailProcessor.process).not.toHaveBeenCalled();
+      expect(smsProcessor.process).not.toHaveBeenCalled();
+    });
+
+    it('should handle retry errors gracefully', async () => {
+      prisma.notification.findMany.mockResolvedValue([
+        { id: 'n1', channel: 'EMAIL', status: 'FAILED' },
+      ]);
+      emailProcessor.process.mockRejectedValue(new Error('Send fail'));
+
+      service.onModuleInit();
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(emailProcessor.process).toHaveBeenCalledWith('n1');
     });
   });
 });
