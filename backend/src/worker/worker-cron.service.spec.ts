@@ -215,5 +215,75 @@ describe('WorkerCronService', () => {
       await new Promise((r) => setTimeout(r, 50));
       expect(emailProcessor.process).toHaveBeenCalledWith('n1');
     });
+
+    it('should skip retry when prisma.notification is unavailable', async () => {
+      prisma.notification = undefined;
+
+      service.onModuleInit();
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(emailProcessor.process).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('DB unavailable handling', () => {
+    it('should detect Prisma P2021 error and mark DB unavailable', async () => {
+      prisma.business.findMany.mockRejectedValue(
+        Object.assign(new Error('The table `Business` does not exist'), { code: 'P2021' }),
+      );
+
+      service.onModuleInit();
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect((service as any).dbAvailable).toBe(false);
+      expect((service as any).consecutiveFailures).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should detect Prisma P1001 error and mark DB unavailable', async () => {
+      prisma.business.findMany.mockRejectedValue(
+        Object.assign(new Error("Can't reach database server"), { code: 'P1001' }),
+      );
+
+      service.onModuleInit();
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect((service as any).dbAvailable).toBe(false);
+    });
+
+    it('should detect connection error by message text', async () => {
+      prisma.business.findMany.mockRejectedValue(
+        new Error('Connection refused to database'),
+      );
+
+      service.onModuleInit();
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect((service as any).dbAvailable).toBe(false);
+    });
+
+    it('should recover when DB becomes available again', async () => {
+      prisma.business.findMany.mockRejectedValue(
+        Object.assign(new Error('Table not found'), { code: 'P2021' }),
+      );
+      service.onModuleInit();
+      await new Promise((r) => setTimeout(r, 50));
+      expect((service as any).dbAvailable).toBe(false);
+
+      prisma.business.findMany.mockResolvedValue([{ id: 'biz1' }]);
+      service.onModuleInit();
+      await new Promise((r) => setTimeout(r, 50));
+      expect((service as any).dbAvailable).toBe(true);
+      expect((service as any).consecutiveFailures).toBe(0);
+    });
+
+    it('should skip crons when DB already marked unavailable', async () => {
+      (service as any).dbAvailable = false;
+      (service as any).consecutiveFailures = 3;
+
+      service.onModuleInit();
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(prisma.business.findMany).not.toHaveBeenCalled();
+    });
   });
 });

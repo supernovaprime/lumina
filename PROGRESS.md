@@ -9,10 +9,10 @@
 
 | Layer | Status | % |
 |-------|--------|---|
-| Backend (NestJS) | Core modules built, unit-tested, cron scheduling, PostGIS, cursor pagination, concurrency tested, Stripe verified, hold expiry wired, MNotify SMS, notification retry cron | **95%** |
+| Backend (NestJS) | Core modules built, unit-tested, cron scheduling, PostGIS, cursor pagination, concurrency tested, Stripe verified, hold expiry wired, MNotify SMS, notification retry cron, DB unavailable resilience | **97%** |
 | Frontend (Next.js) | Not started | **0%** |
 | Infrastructure / DevOps | .env configured, no CI/CD or deployment | **15%** |
-| **Overall** | | **42%** |
+| **Overall** | | **43%** |
 
 ---
 
@@ -179,7 +179,7 @@
 | User management | ✅ | 90% |
 | Business management | ✅ | 90% |
 | Booking management | ✅ AdminBookingService | 85% |
-| Reports (CSV export) | ⚠️ Service stub | 30% |
+| Reports (CSV export) | ✅ AdminReportService — 4 report types (bookings/revenue/businesses/users), CsvService columns, R2 upload, job status tracking, 16 tests | 100% |
 | Audit log | ✅ AuditService | 70% |
 
 ### §13 — Cross-Cutting Rules
@@ -225,7 +225,7 @@
 | src/notification/ | ✅ Module + service + 11 templates + SMS channel support | 100% |
 | src/admin/ | ✅ Module + controller + 4 services + DTOs + R2 + CSV integration | 95% |
 | src/webhooks/ | ✅ Module + controller — Stripe signature verification via SDK constructEvent + raw body (8 tests) | 100% |
-| src/worker/ | ✅ Module + WorkerCronService + 7 processors (incl. SendSmsProcessor) + SmsModule import | 100% |
+| src/worker/ | ✅ Module + WorkerCronService + 7 processors + SmsModule import + DB unavailable backoff + verbose error logging | 100% |
 | src/types/ | ✅ api.ts + domain.ts | 90% |
 | src/libs/prisma/ | ✅ Global module + service | 95% |
 | src/libs/redis/ | ✅ Global module + service (graceful) | 90% |
@@ -322,11 +322,11 @@
 | SMS | 1 | 1 | ✅ All passing |
 | Audit | 1 | 2 | ✅ All passing |
 | Worker (cron scheduling) | 1 | 12 | ✅ All passing |
-| **Total** | **50** | **472** | **✅ 0 failures** |
+| **Total** | **50** | **478** | **✅ 0 failures** |
 
 | Test Type | Status |
 |-----------|--------|
-| Unit tests (in src/) | ✅ 472 passing |
+| Unit tests (in src/) | ✅ 478 passing |
 | Integration tests | ❌ Not created |
 | E2E tests (HTTP) | ❌ Not created |
 | Load tests (k6) | ❌ Not created |
@@ -356,8 +356,8 @@
 | Per-route throttling on auth endpoints | `auth.controller.ts` — @Throttle decorators (5/min register/login, 3/min forgot-password) |
 | Auth tests updated | `auth.service.spec.ts` (36 tests: all rate-limit scenarios covered) |
 | Login attempt rate limiting marked complete | `PROGRESS.md` (§1: 0% → 100%, §13: 20% → 80%) |
-| WorkerCronService | `src/worker/worker-cron.service.ts` — 6 cron jobs: slot generation (daily), slot reconciliation (hourly), booking hold expiry (5min), reminders via SendRemindersProcessor (hourly), review requests via ReviewRequestProcessor (daily), notification retry (15min) |
-| WorkerCronService tests | `src/worker/worker-cron.service.spec.ts` (16 tests: init/destroy lifecycle, slot gen, reconciliation, hold expiry, reminders, review requests, notification retry for email/SMS, error handling) |
+| WorkerCronService | `src/worker/worker-cron.service.ts` — 6 crons: slot gen (daily), reconciliation (hourly), hold expiry (5min), reminders (hourly via SendRemindersProcessor), review requests (daily via ReviewRequestProcessor), notification retry (15min). DB availability tracking with Prisma error code detection (P1000-P1010, P2021-P2037), consecutive failure backoff (skips crons after 3 failures), verbose stack logging |
+| WorkerCronService tests | `src/worker/worker-cron.service.spec.ts` (22 tests: lifecycle, slot gen, reconciliation, hold expiry, reminders, reviews, notification retry, DB unavailable detection via P2021/P1001/message text, DB recovery, skip after failures) |
 | WorkerModule updated | `src/worker/worker.module.ts` — imports BusinessModule, registers WorkerCronService |
 | AppModule updated | `src/app.module.ts` — imports WorkerModule (cron scheduling starts on app boot) |
 | Worker cron scheduling marked complete | `PROGRESS.md` (§4: 30% → 100%, §13 background jobs: 35% → 100%) |
@@ -385,6 +385,9 @@
 | WorkerCronService refactored | Delegates to processors: SendRemindersProcessor for reminders, ReviewRequestProcessor for review requests. 6 cron jobs total (was 5). 16 tests |
 | WorkerModule updated | `src/worker/worker.module.ts` — added SmsModule import, SendSmsProcessor registration |
 | Notifications marked complete | `PROGRESS.md` (§11: email 40%→100%, SMS 10%→100%, reminders 20%→100%, review requests 20%→100%) |
+| WorkerCronService DB unavailable resilience | `src/worker/worker-cron.service.ts` — added `isPrismaDbError()` detecting Prisma error codes (P1000-P1010, P2021-P2037) + message pattern matching. Added `markDbUnavailable()`/`markDbAvailable()` state tracking with consecutive failure counter (MAX=3). After 3 DB failures, crons skip queries until DB recovers. Verbose error logging with stack traces. 5 new tests |
+| BookingHoldExpiryProcessor hardened | `src/worker/processors/booking-hold-expiry.processor.ts` — added null guards for `prisma.booking` model and `booking.timeSlot_rel` access. Verbose error logging with stack traces |
+| Reports (CSV export) marked complete | `PROGRESS.md` (§12: Reports CSV 30%→100% — was already fully implemented) |
 
 ---
 
@@ -424,4 +427,4 @@
 
 ---
 
-*Backend unit tests: 50 suites / 472 tests / 0 failures · TypeScript: clean · Overall: 42%*
+*Backend unit tests: 50 suites / 478 tests / 0 failures · TypeScript: clean · Overall: 43%*
