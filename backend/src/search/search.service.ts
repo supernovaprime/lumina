@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { CacheService } from '../libs/cache/cache.service';
 import { GeoService } from '../libs/geo/geo.service';
+import { applyCursorPagination, CursorPaginationResult } from '../libs/common/cursor-pagination';
 
 export interface SearchFilters {
   query?: string;
@@ -11,8 +12,17 @@ export interface SearchFilters {
   service?: string;
   minRating?: number;
   sort?: 'distance' | 'rating' | 'price';
-  page?: number;
+  cursor?: string;
   limit?: number;
+}
+
+export interface SearchResult {
+  businesses: any[];
+  meta: {
+    nextCursor?: string;
+    hasMore: boolean;
+    limit: number;
+  };
 }
 
 @Injectable()
@@ -23,19 +33,24 @@ export class SearchService {
     private readonly geo: GeoService,
   ) {}
 
-  async search(filters: SearchFilters) {
-    const { query, lat, lng, radiusKm = 10, service, minRating, sort = 'distance', page = 1, limit = 20 } = filters;
+  async search(filters: SearchFilters): Promise<SearchResult> {
+    const { query, lat, lng, radiusKm = 10, service, minRating, sort = 'distance', cursor, limit = 20 } = filters;
 
     const cacheKey = CacheService.searchKey(JSON.stringify(filters));
     const cached = await this.cache.get(cacheKey);
-    if (cached) return cached;
+    if (cached) return cached as SearchResult;
 
     let results: any[];
 
     if (lat != null && lng != null) {
-      results = await this.geo.findNearby(lat, lng, radiusKm, { limit: 100, isVerified: true });
+      const { businesses } = await this.geo.findNearby(lat, lng, radiusKm, {
+        limit: 100,
+        cursor,
+        isVerified: true,
+      });
+      results = businesses;
     } else {
-      results = await this.textSearch(query, { limit: 100 });
+      results = await this.textSearch(query, { limit: 100, cursor });
     }
 
     if (service) {
@@ -54,16 +69,11 @@ export class SearchService {
       results.sort((a: any, b: any) => (a.startingPriceCents || 0) - (b.startingPriceCents || 0));
     }
 
-    const total = results.length;
-    const start = (page - 1) * limit;
-    const paginated = results.slice(start, start + limit);
+    const paginated = applyCursorPagination(results, limit, cursor);
 
-    const response = {
-      businesses: paginated,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+    const response: SearchResult = {
+      businesses: paginated.data,
+      meta: paginated.meta,
     };
 
     await this.cache.set(cacheKey, response, 60);
@@ -71,29 +81,27 @@ export class SearchService {
     return response;
   }
 
-  private async textSearch(query: string | undefined, options: { limit: number }) {
-    if (!query) {
-      return this.prisma.business.findMany({
-        where: { isVerified: true, isActive: true },
-        include: {
-          services: { where: { isActive: true }, select: { id: true, name: true, category: true, basePrice: true } },
-        },
-        take: options.limit,
-        orderBy: { rating: 'desc' },
-      });
+  private async textSearch(query: string | undefined, options: { limit: number; cursor?: string }) {
+    const where: any = {
+      isVerified: true,
+      isActive: true,
+    };
+
+    if (query) {
+      where.OR = [
+        { name: { contains: query, mode: 'insensitive' } },
+        { city: { contains: query, mode: 'insensitive' } },
+        { state: { contains: query, mode: 'insensitive' } },
+        { description: { contains: query, mode: 'insensitive' } },
+      ];
+    }
+
+    if (options.cursor) {
+      where.id = { gt: options.cursor };
     }
 
     return this.prisma.business.findMany({
-      where: {
-        isVerified: true,
-        isActive: true,
-        OR: [
-          { name: { contains: query, mode: 'insensitive' } },
-          { city: { contains: query, mode: 'insensitive' } },
-          { state: { contains: query, mode: 'insensitive' } },
-          { description: { contains: query, mode: 'insensitive' } },
-        ],
-      },
+      where,
       include: {
         services: { where: { isActive: true }, select: { id: true, name: true, category: true, basePrice: true } },
       },

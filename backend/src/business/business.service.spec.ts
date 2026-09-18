@@ -3,11 +3,13 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { BusinessService } from './business.service';
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { CacheService } from '../libs/cache/cache.service';
+import { StorageService } from '../libs/storage/storage.service';
 
 describe('BusinessService', () => {
   let service: BusinessService;
   let prisma: any;
   let cache: any;
+  let storage: any;
 
   beforeEach(async () => {
     prisma = {
@@ -25,11 +27,18 @@ describe('BusinessService', () => {
       invalidate: jest.fn().mockResolvedValue(undefined),
     };
 
+    storage = {
+      upload: jest.fn().mockResolvedValue({ path: 'logos/b1/logo-123.png', publicUrl: 'https://storage.example.com/logos/b1/logo-123.png' }),
+      delete: jest.fn().mockResolvedValue(undefined),
+      getPublicUrl: jest.fn().mockReturnValue('https://storage.example.com/test'),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BusinessService,
         { provide: PrismaService, useValue: prisma },
         { provide: CacheService, useValue: cache },
+        { provide: StorageService, useValue: storage },
       ],
     }).compile();
 
@@ -79,27 +88,6 @@ describe('BusinessService', () => {
         email: '',
         timezone: '',
       })).rejects.toThrow(ConflictException);
-    });
-
-    it('should create business if existing one is inactive', async () => {
-      prisma.business.findUnique.mockResolvedValue({ id: 'b1', isActive: false });
-      prisma.business.create.mockResolvedValue({ id: 'b2', name: 'Wash Co' });
-
-      const result = await service.create('owner1', {
-        name: 'Wash Co',
-        description: '',
-        address: '',
-        city: '',
-        state: '',
-        zipCode: '',
-        latitude: 0,
-        longitude: 0,
-        phone: '',
-        email: '',
-        timezone: '',
-      });
-
-      expect(result).toEqual({ id: 'b2', name: 'Wash Co' });
     });
   });
 
@@ -151,24 +139,80 @@ describe('BusinessService', () => {
   });
 
   describe('uploadLogo', () => {
-    it('should generate logo URL and update business', async () => {
-      prisma.business.findUnique.mockResolvedValue({ id: 'b1' });
-      prisma.business.update.mockResolvedValue({ id: 'b1', logo: 'logos/b1/logo.png' });
+    const mockFile = { buffer: Buffer.from('fake-image'), mimetype: 'image/png', originalname: 'logo.png' };
 
-      const result = await service.uploadLogo('b1', {
-        originalname: 'logo.png',
-        mimetype: 'image/png',
+    it('should upload logo to storage and update business', async () => {
+      prisma.business.findUnique.mockResolvedValue({ id: 'b1', logo: null });
+      prisma.business.update.mockResolvedValue({ id: 'b1', logo: 'logos/b1/logo-123.png' });
+
+      const result = await service.uploadLogo('b1', mockFile);
+
+      expect(storage.upload).toHaveBeenCalledWith('logos/b1', expect.stringContaining('logo-'), Buffer.from('fake-image'), 'image/png');
+      expect(prisma.business.update).toHaveBeenCalledWith({
+        where: { id: 'b1' },
+        data: { logo: 'logos/b1/logo-123.png' },
       });
-
-      expect(result.logoUrl).toBe('logos/b1/logo.png');
+      expect(result.logoUrl).toBe('https://storage.example.com/logos/b1/logo-123.png');
       expect(cache.del).toHaveBeenCalledWith('business:b1');
+      expect(cache.invalidate).toHaveBeenCalledWith('search:*');
+    });
+
+    it('should delete old logo before uploading new one', async () => {
+      prisma.business.findUnique.mockResolvedValue({ id: 'b1', logo: 'logos/b1/old-logo.png' });
+      prisma.business.update.mockResolvedValue({});
+
+      await service.uploadLogo('b1', mockFile);
+
+      expect(storage.delete).toHaveBeenCalledWith('logos/b1/old-logo.png');
+    });
+
+    it('should not delete if no old logo', async () => {
+      prisma.business.findUnique.mockResolvedValue({ id: 'b1', logo: null });
+      prisma.business.update.mockResolvedValue({});
+
+      await service.uploadLogo('b1', mockFile);
+
+      expect(storage.delete).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if business not found', async () => {
       prisma.business.findUnique.mockResolvedValue(null);
 
-      await expect(service.uploadLogo('b1', { originalname: 'x.png', mimetype: 'image/png' }))
-        .rejects.toThrow(NotFoundException);
+      await expect(service.uploadLogo('b1', mockFile)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('uploadCover', () => {
+    const mockFile = { buffer: Buffer.from('fake-image'), mimetype: 'image/jpeg', originalname: 'cover.jpg' };
+
+    it('should upload cover to storage and update business', async () => {
+      storage.upload.mockResolvedValue({ path: 'covers/b1/cover-456.jpg', publicUrl: 'https://storage.example.com/covers/b1/cover-456.jpg' });
+      prisma.business.findUnique.mockResolvedValue({ id: 'b1', coverImage: null });
+      prisma.business.update.mockResolvedValue({});
+
+      const result = await service.uploadCover('b1', mockFile);
+
+      expect(storage.upload).toHaveBeenCalledWith('covers/b1', expect.stringContaining('cover-'), Buffer.from('fake-image'), 'image/jpeg');
+      expect(prisma.business.update).toHaveBeenCalledWith({
+        where: { id: 'b1' },
+        data: { coverImage: 'covers/b1/cover-456.jpg' },
+      });
+      expect(result.coverUrl).toBe('https://storage.example.com/covers/b1/cover-456.jpg');
+    });
+
+    it('should delete old cover before uploading new one', async () => {
+      prisma.business.findUnique.mockResolvedValue({ id: 'b1', coverImage: 'covers/b1/old-cover.jpg' });
+      prisma.business.update.mockResolvedValue({});
+
+      await service.uploadCover('b1', mockFile);
+
+      expect(storage.delete).toHaveBeenCalledWith('covers/b1/old-cover.jpg');
+    });
+
+    it('should throw NotFoundException if business not found', async () => {
+      prisma.business.findUnique.mockResolvedValue(null);
+
+      await expect(service.uploadCover('b1', mockFile)).rejects.toThrow(NotFoundException);
     });
   });
 

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { addDays } from 'date-fns';
 
@@ -83,6 +83,29 @@ export class ReviewService {
     });
 
     return updated;
+  }
+
+  async respond(reviewId: string, userId: string, response: string) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+      include: { business: true },
+    });
+
+    if (!review) throw new NotFoundException('Review not found');
+    if (review.business.ownerId !== userId) {
+      throw new ForbiddenException('You can only respond to reviews for your business');
+    }
+    if (review.response) {
+      throw new ConflictException({
+        code: 'ALREADY_RESPONDED',
+        message: 'You have already responded to this review',
+      });
+    }
+
+    return this.prisma.review.update({
+      where: { id: reviewId },
+      data: { response },
+    });
   }
 
   async findByBusiness(businessId: string, page: number = 1, limit: number = 20) {

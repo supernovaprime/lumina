@@ -6,6 +6,9 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaModule } from '../libs/prisma/prisma.module';
+import { TokenModule } from '../libs/tokens/token.module';
+import { RateLimitModule } from '../libs/rate-limit/rate-limit.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -21,6 +24,9 @@ import { PrismaModule } from '../libs/prisma/prisma.module';
       }),
       inject: [ConfigService],
     }),
+    TokenModule,
+    RateLimitModule,
+    NotificationModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

@@ -14,7 +14,7 @@ export class SearchController {
     @Query('service') service?: string,
     @Query('minRating') minRating?: string,
     @Query('sort') sort?: string,
-    @Query('page') page?: string,
+    @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
   ) {
     return this.searchService.search({
@@ -25,7 +25,7 @@ export class SearchController {
       service,
       minRating: minRating ? parseFloat(minRating) : undefined,
       sort: sort as any,
-      page: page ? parseInt(page) : 1,
+      cursor,
       limit: limit ? parseInt(limit) : 20,
     });
   }

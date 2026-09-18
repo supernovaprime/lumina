@@ -10,6 +10,7 @@ import { BookingHoldExpiryProcessor } from './processors/booking-hold-expiry.pro
 import { GenerateSlotsProcessor } from './processors/generate-slots.processor';
 import { ReconcileSlotsProcessor } from './processors/reconcile-slots.processor';
 import { ReviewRequestProcessor } from './processors/review-request.processor';
+import { WorkerCronService } from './worker-cron.service';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ReviewRequestProcessor } from './processors/review-request.processor';
     GenerateSlotsProcessor,
     ReconcileSlotsProcessor,
     ReviewRequestProcessor,
+    WorkerCronService,
   ],
   exports: [
     SendEmailProcessor,
@@ -34,6 +36,7 @@ import { ReviewRequestProcessor } from './processors/review-request.processor';
     GenerateSlotsProcessor,
     ReconcileSlotsProcessor,
     ReviewRequestProcessor,
+    WorkerCronService,
   ],
 })
 export class WorkerModule {}

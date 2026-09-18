@@ -15,9 +15,10 @@ import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
 import { PrismaModule } from '../libs/prisma/prisma.module';
 import { CacheModule } from '../libs/cache/cache.module';
+import { StorageModule } from '../libs/storage/storage.module';
 
 @Module({
-  imports: [PrismaModule, CacheModule],
+  imports: [PrismaModule, CacheModule, StorageModule],
   controllers: [
     BusinessController,
     ServiceController,

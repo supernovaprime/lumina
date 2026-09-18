@@ -15,6 +15,7 @@ import { SearchModule } from './search/search.module';
 import { NotificationModule } from './notification/notification.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { HealthModule } from './libs/health/health.module';
+import { WorkerModule } from './worker/worker.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { HealthModule } from './libs/health/health.module';
     SearchModule,
     NotificationModule,
     WebhooksModule,
+    WorkerModule,
   ],
 })
 export class AppModule implements NestModule {

@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Delete, Body, Param, Query, Headers, UseGuards, HttpCode } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../libs/common/guards/jwt-auth.guard';
 import { RolesGuard } from '../libs/common/guards/roles.guard';
 import { Roles } from '../libs/common/decorators/roles.decorator';
@@ -21,6 +22,7 @@ export class BookingController {
 
   @Post()
   @Roles('CUSTOMER')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @HttpCode(201)
   create(
     @CurrentUser() user: any,

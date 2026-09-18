@@ -41,7 +41,6 @@ describe('GeoService', () => {
     });
 
     it('returns correct distance for known cities', () => {
-      // NYC to LA ~ 3944km
       const result = service.haversineDistance(
         { latitude: 40.7128, longitude: -74.0060 },
         { latitude: 34.0522, longitude: -118.2437 },
@@ -68,24 +67,117 @@ describe('GeoService', () => {
   });
 
   describe('findNearby', () => {
-    it('queries with correct parameters', async () => {
-      prisma.$queryRawUnsafe.mockResolvedValue([]);
-      await service.findNearby(40.7128, -74.0060, 10);
-      expect(prisma.$queryRawUnsafe).toHaveBeenCalled();
-    });
-
-    it('returns empty array when no results', async () => {
-      prisma.$queryRawUnsafe.mockResolvedValue([]);
-      const result = await service.findNearby(40.7128, -74.0060, 10);
-      expect(result).toEqual([]);
-    });
-
-    it('attaches distanceKm to results', async () => {
+    it('uses PostGIS ST_DWithin for spatial queries', async () => {
       prisma.$queryRawUnsafe.mockResolvedValue([
-        { id: 'b1', name: 'Test', distanceKm: '5.5' },
+        { id: 'b1', name: 'Test', distanceKm: 5000 },
       ]);
+
       const result = await service.findNearby(40.7128, -74.0060, 10);
-      expect(result[0].distanceKm).toBe(5.5);
+
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalled();
+      const sql = prisma.$queryRawUnsafe.mock.calls[0][0];
+      expect(sql).toContain('ST_DWithin');
+      expect(sql).toContain('ST_SetSRID');
+      expect(sql).toContain('geography');
+      expect(result.businesses).toHaveLength(1);
+      expect(result.businesses[0].distanceKm).toBe(5);
+    });
+
+    it('converts meters to kilometers in result', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([
+        { id: 'b1', name: 'Test', distanceKm: 1500 },
+      ]);
+
+      const result = await service.findNearby(40.7128, -74.0060, 10);
+      expect(result.businesses[0].distanceKm).toBe(1.5);
+    });
+
+    it('returns empty when no results', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([]);
+      const result = await service.findNearby(40.7128, -74.0060, 10);
+      expect(result.businesses).toEqual([]);
+      expect(result.nextCursor).toBeUndefined();
+    });
+
+    it('returns nextCursor when more results exist', async () => {
+      const rows = Array.from({ length: 21 }, (_, i) => ({
+        id: `b${String(i).padStart(3, '0')}`,
+        name: `Business ${i}`,
+        distanceKm: i * 1000,
+      }));
+      prisma.$queryRawUnsafe.mockResolvedValue(rows);
+
+      const result = await service.findNearby(40.7128, -74.0060, 10, { limit: 20 });
+      expect(result.businesses).toHaveLength(20);
+      expect(result.nextCursor).toBe('b019');
+    });
+
+    it('returns no nextCursor when all results fit', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([
+        { id: 'b1', name: 'Test', distanceKm: 5000 },
+      ]);
+
+      const result = await service.findNearby(40.7128, -74.0060, 10, { limit: 20 });
+      expect(result.nextCursor).toBeUndefined();
+    });
+
+    it('applies cursor for pagination', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([]);
+
+      await service.findNearby(40.7128, -74.0060, 10, { cursor: 'b005' });
+
+      const sql = prisma.$queryRawUnsafe.mock.calls[0][0];
+      expect(sql).toContain('b."id" >');
+    });
+
+    it('applies verified filter when isVerified is true', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([]);
+
+      await service.findNearby(40.7128, -74.0060, 10, { isVerified: true });
+
+      const sql = prisma.$queryRawUnsafe.mock.calls[0][0];
+      expect(sql).toContain('b."isVerified" = true');
+      expect(sql).toContain('b."isActive" = true');
+    });
+
+    it('falls back to Haversine when PostGIS fails', async () => {
+      prisma.$queryRawUnsafe
+        .mockRejectedValueOnce(new Error('function st_dwithin does not exist'))
+        .mockResolvedValueOnce([
+          { id: 'b1', name: 'Test', distanceKm: 5.5 },
+        ]);
+
+      const result = await service.findNearby(40.7128, -74.0060, 10);
+      expect(result.businesses).toHaveLength(1);
+      expect(result.businesses[0].distanceKm).toBe(5.5);
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(2);
+    });
+
+    it('fallback uses Haversine formula', async () => {
+      prisma.$queryRawUnsafe
+        .mockRejectedValueOnce(new Error('PostGIS not available'))
+        .mockResolvedValueOnce([
+          { id: 'b1', name: 'Test', distanceKm: 3.2 },
+        ]);
+
+      await service.findNearby(40.7128, -74.0060, 10);
+
+      const fallbackSql = prisma.$queryRawUnsafe.mock.calls[1][0];
+      expect(fallbackSql).toContain('acos');
+      expect(fallbackSql).toContain('radians');
+    });
+
+    it('fallback returns cursor when more results exist', async () => {
+      const rows = Array.from({ length: 21 }, (_, i) => ({
+        id: `b${String(i).padStart(3, '0')}`,
+        distanceKm: i * 0.5,
+      }));
+      prisma.$queryRawUnsafe
+        .mockRejectedValueOnce(new Error('PostGIS not available'))
+        .mockResolvedValueOnce(rows);
+
+      const result = await service.findNearby(40.7128, -74.0060, 10, { limit: 20 });
+      expect(result.nextCursor).toBe('b019');
     });
   });
 });

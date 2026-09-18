@@ -6,6 +6,7 @@ import { CurrentUser } from '../libs/common/decorators/current-user.decorator';
 import { ReviewService } from './review.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { EditReviewDto } from './dto/edit-review.dto';
+import { RespondToReviewDto } from './dto/respond-to-review.dto';
 
 @Controller('reviews')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -23,6 +24,17 @@ export class ReviewController {
   @Roles('CUSTOMER')
   edit(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: EditReviewDto) {
     return this.reviewService.edit(user.userId, id, dto);
+  }
+
+  @Post(':id/respond')
+  @Roles('BUSINESS')
+  @HttpCode(201)
+  respond(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: RespondToReviewDto,
+  ) {
+    return this.reviewService.respond(id, user.userId, dto.response);
   }
 
   @Get('business/:businessId')

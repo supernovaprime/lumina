@@ -11,6 +11,10 @@ describe('AuthController', () => {
       register: jest.fn(),
       login: jest.fn(),
       getProfile: jest.fn(),
+      forgotPassword: jest.fn(),
+      resetPassword: jest.fn(),
+      verifyEmail: jest.fn(),
+      updateProfile: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -69,6 +73,54 @@ describe('AuthController', () => {
       const result = await controller.logout();
 
       expect(result).toEqual({ message: 'Logged out successfully' });
+    });
+  });
+
+  describe('forgotPassword', () => {
+    it('should call authService.forgotPassword with email', async () => {
+      const dto = { email: 'test@example.com' };
+      service.forgotPassword.mockResolvedValue({ message: 'If an account with that email exists, a reset link has been sent' });
+
+      const result = await controller.forgotPassword(dto);
+
+      expect(service.forgotPassword).toHaveBeenCalledWith(dto);
+      expect(result).toEqual({ message: 'If an account with that email exists, a reset link has been sent' });
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should call authService.resetPassword with token and newPassword', async () => {
+      const dto = { token: 'valid-token', newPassword: 'newpassword123' };
+      service.resetPassword.mockResolvedValue({ message: 'Password reset successful' });
+
+      const result = await controller.resetPassword(dto);
+
+      expect(service.resetPassword).toHaveBeenCalledWith(dto);
+      expect(result).toEqual({ message: 'Password reset successful' });
+    });
+  });
+
+  describe('verifyEmail', () => {
+    it('should call authService.verifyEmail with token', async () => {
+      const dto = { token: 'valid-token' };
+      service.verifyEmail.mockResolvedValue({ message: 'Email verified successfully' });
+
+      const result = await controller.verifyEmail(dto);
+
+      expect(service.verifyEmail).toHaveBeenCalledWith(dto);
+      expect(result).toEqual({ message: 'Email verified successfully' });
+    });
+  });
+
+  describe('updateProfile', () => {
+    it('should call authService.updateProfile with userId and dto', async () => {
+      const dto = { firstName: 'Jane', lastName: 'Smith' };
+      service.updateProfile.mockResolvedValue({ id: 'user-1', customer: { firstName: 'Jane' } });
+
+      const result = await controller.updateProfile('user-1', dto);
+
+      expect(service.updateProfile).toHaveBeenCalledWith('user-1', dto);
+      expect(result).toEqual({ id: 'user-1', customer: { firstName: 'Jane' } });
     });
   });
 });

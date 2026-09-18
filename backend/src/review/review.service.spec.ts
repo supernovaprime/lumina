@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReviewService } from './review.service';
 import { PrismaService } from '../libs/prisma/prisma.service';
-import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 
 describe('ReviewService', () => {
   let service: ReviewService;
@@ -121,6 +121,47 @@ describe('ReviewService', () => {
       const result = await service.findByBusiness('biz1');
       expect(result.reviews).toHaveLength(1);
       expect(result.total).toBe(1);
+    });
+  });
+
+  describe('respond', () => {
+    it('adds response to review', async () => {
+      prisma.review.findUnique.mockResolvedValue({
+        id: 'r1',
+        business: { ownerId: 'owner1' },
+        response: null,
+      });
+      prisma.review.update.mockResolvedValue({ id: 'r1', response: 'Thanks!' });
+
+      const result = await service.respond('r1', 'owner1', 'Thanks!');
+      expect(result.response).toBe('Thanks!');
+      expect(prisma.review.update).toHaveBeenCalledWith({
+        where: { id: 'r1' },
+        data: { response: 'Thanks!' },
+      });
+    });
+
+    it('throws NotFoundException if review not found', async () => {
+      prisma.review.findUnique.mockResolvedValue(null);
+      await expect(service.respond('r1', 'owner1', 'X')).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException if not business owner', async () => {
+      prisma.review.findUnique.mockResolvedValue({
+        id: 'r1',
+        business: { ownerId: 'other' },
+        response: null,
+      });
+      await expect(service.respond('r1', 'owner1', 'X')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ConflictException if already responded', async () => {
+      prisma.review.findUnique.mockResolvedValue({
+        id: 'r1',
+        business: { ownerId: 'owner1' },
+        response: 'Already responded',
+      });
+      await expect(service.respond('r1', 'owner1', 'X')).rejects.toThrow(ConflictException);
     });
   });
 });

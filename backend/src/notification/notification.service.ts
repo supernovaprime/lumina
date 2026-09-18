@@ -11,7 +11,9 @@ export type NotificationType =
   | 'reminder-2h'
   | 'review-request'
   | 'business-approved'
-  | 'refund-processed';
+  | 'refund-processed'
+  | 'password-reset'
+  | 'email-verification';
 
 @Injectable()
 export class NotificationService {
@@ -211,6 +213,16 @@ export class NotificationService {
         subject: `Refund Processed`,
         title: 'Refund Processed',
         body: `Your refund has been processed.`,
+      }),
+      'password-reset': (d) => ({
+        subject: `Password Reset Request`,
+        title: 'Password Reset',
+        body: `You requested a password reset. Use the following code to reset your password: ${d.token}. This code expires in 1 hour. If you did not request this, please ignore this email.`,
+      }),
+      'email-verification': (d) => ({
+        subject: `Verify Your Email Address`,
+        title: 'Email Verification',
+        body: `Welcome to Lumina! Please verify your email address using the following code: ${d.token}. This code expires in 24 hours.`,
       }),
     };
 
