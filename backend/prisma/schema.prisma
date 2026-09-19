@@ -32,6 +32,10 @@ model User {
   auditLogs         AuditLog[]
   verificationTokens VerificationToken[]
   passwordResetTokens PasswordResetToken[]
+  gdprRequests      GdprRequest[]
+
+  @@index([role])
+  @@index([isActive])
 }
 
 model Customer {
@@ -130,6 +134,8 @@ model Service {
   business        Business        @relation(fields: [businessId], references: [id])
   bookings        Booking[]
   priceModifiers  PriceModifier[]
+
+  @@index([businessId])
 }
 
 model PriceModifier {
@@ -208,6 +214,12 @@ model Booking {
   timeSlot_rel  TimeSlot      @relation(fields: [timeSlotId], references: [id])
   payment       Payment?
   review        Review?
+
+  @@index([businessId])
+  @@index([customerId])
+  @@index([status])
+  @@index([date])
+  @@index([createdAt])
 }
 
 // ============================================
@@ -226,6 +238,27 @@ model Payment {
   updatedAt       DateTime      @updatedAt
 
   booking         Booking       @relation(fields: [bookingId], references: [id])
+  refunds         Refund[]
+}
+
+// ============================================
+// REFUND
+// ============================================
+
+model Refund {
+  id              String       @id @default(uuid())
+  paymentId       String
+  amountCents     Int
+  reason          String
+  status          RefundStatus @default(PENDING)
+  stripeRefundId  String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  payment         Payment      @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+  @@index([status])
 }
 
 // ============================================
@@ -248,6 +281,10 @@ model Review {
   booking     Booking  @relation(fields: [bookingId], references: [id])
   customer    Customer @relation(fields: [customerId], references: [id])
   business    Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId])
+  @@index([customerId])
+  @@index([isHidden])
 }
 
 // ============================================
@@ -278,6 +315,8 @@ model RefreshToken {
   createdAt   DateTime @default(now())
 
   user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -319,6 +358,8 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 // ============================================
@@ -370,6 +411,27 @@ model ReportJob {
 }
 
 // ============================================
+// GDPR / DATA RETENTION
+// ============================================
+
+model GdprRequest {
+  id          String             @id @default(uuid())
+  userId      String
+  type        GdprRequestType
+  status      GdprRequestStatus  @default(PENDING)
+  fileUrl     String?
+  error       String?
+  createdAt   DateTime           @default(now())
+  completedAt DateTime?
+
+  user        User               @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================
 // ENUMS
 // ============================================
 
@@ -394,6 +456,7 @@ enum PaymentStatus {
   COMPLETED
   FAILED
   REFUNDED
+  PARTIAL_REFUNDED
 }
 
 enum VehicleType {
@@ -425,6 +488,25 @@ enum VerificationStatus {
 }
 
 enum ReportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum GdprRequestType {
+  DATA_EXPORT
+  ACCOUNT_DELETION
+}
+
+enum GdprRequestStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum RefundStatus {
   PENDING
   PROCESSING
   COMPLETED

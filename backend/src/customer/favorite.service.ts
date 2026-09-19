@@ -6,7 +6,7 @@ export class FavoriteService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(customerId: string) {
-    return this.prisma.favorite.findMany({
+    const favorites = await this.prisma.favorite.findMany({
       where: { customerId },
       include: {
         business: {
@@ -23,6 +23,32 @@ export class FavoriteService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const enriched = await Promise.all(
+      favorites.map(async (fav) => {
+        const nextSlot = await this.prisma.timeSlot.findFirst({
+          where: {
+            businessId: fav.businessId,
+            date: { gte: today },
+            isAvailable: true,
+            currentBookings: { lt: 10 },
+          },
+          orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+        });
+
+        return {
+          ...fav,
+          nextAvailableSlot: nextSlot
+            ? { date: nextSlot.date, startTime: nextSlot.startTime, endTime: nextSlot.endTime }
+            : null,
+        };
+      }),
+    );
+
+    return enriched;
   }
 
   async add(customerId: string, businessId: string) {

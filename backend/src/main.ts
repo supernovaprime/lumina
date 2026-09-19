@@ -3,6 +3,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 // @ts-ignore - @nestjs/swagger types may not be installed
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import * as Sentry from '@sentry/nestjs';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './libs/common/filters/http-exception.filter';
@@ -38,6 +39,16 @@ async function bootstrap() {
   printBanner();
 
   const logger = new Logger('Bootstrap');
+
+  const sentryDsn = process.env.SENTRY_DSN;
+  if (sentryDsn) {
+    Sentry.init({
+      dsn: sentryDsn,
+      environment: process.env.NODE_ENV || 'development',
+      tracesSampleRate: 0.1,
+    });
+    logger.log('Sentry initialized');
+  }
 
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'],

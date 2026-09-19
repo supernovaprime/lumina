@@ -1,6 +1,6 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsInt, Min } from 'class-validator';
 
 export class RefundPaymentDto {
-  @IsString() @IsOptional() amountCents?: string;
+  @IsInt() @Min(1) @IsOptional() amountCents?: number;
   @IsString() @IsNotEmpty() reason!: string;
 }

@@ -6,6 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import * as Sentry from '@sentry/nestjs';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -43,9 +44,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message = exception.message;
     }
 
-    // Log 5xx errors to console (Sentry would go here in production)
+    // Report 5xx errors to Sentry
     if (status >= 500) {
       console.error(`[${requestId}] ${request.method} ${request.url}`, exception);
+      Sentry.captureException(exception, {
+        extra: {
+          requestId,
+          method: request.method,
+          url: request.url,
+          status,
+        },
+      });
     }
 
     response.status(status).json({

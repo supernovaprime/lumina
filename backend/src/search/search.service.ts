@@ -11,6 +11,7 @@ export interface SearchFilters {
   radiusKm?: number;
   service?: string;
   minRating?: number;
+  openNow?: boolean;
   sort?: 'distance' | 'rating' | 'price';
   cursor?: string;
   limit?: number;
@@ -34,7 +35,7 @@ export class SearchService {
   ) {}
 
   async search(filters: SearchFilters): Promise<SearchResult> {
-    const { query, lat, lng, radiusKm = 10, service, minRating, sort = 'distance', cursor, limit = 20 } = filters;
+    const { query, lat, lng, radiusKm = 10, service, minRating, openNow, sort = 'distance', cursor, limit = 20 } = filters;
 
     const cacheKey = CacheService.searchKey(JSON.stringify(filters));
     const cached = await this.cache.get(cacheKey);
@@ -63,6 +64,20 @@ export class SearchService {
       results = results.filter((b: any) => b.rating >= minRating);
     }
 
+    if (openNow) {
+      const now = new Date();
+      const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      results = results.filter((b: any) => {
+        if (!b.operatingHours) return false;
+        const hours = b.operatingHours as Record<string, { open: string; close: string }>;
+        const todayHours = hours[dayOfWeek];
+        if (!todayHours) return false;
+        return currentTime >= todayHours.open && currentTime < todayHours.close;
+      });
+    }
+
     if (sort === 'rating') {
       results.sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0));
     } else if (sort === 'price') {
@@ -71,14 +86,41 @@ export class SearchService {
 
     const paginated = applyCursorPagination(results, limit, cursor);
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const enriched = await Promise.all(
+      paginated.data.map(async (b: any) => {
+        const nextSlot = await this.prisma.timeSlot.findFirst({
+          where: {
+            businessId: b.id,
+            date: { gte: today },
+            isAvailable: true,
+          },
+          orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+        });
+
+        return {
+          ...b,
+          nextAvailableSlot: nextSlot
+            ? { date: nextSlot.date, startTime: nextSlot.startTime, endTime: nextSlot.endTime }
+            : null,
+        };
+      }),
+    );
+
     const response: SearchResult = {
-      businesses: paginated.data,
+      businesses: enriched,
       meta: paginated.meta,
     };
 
     await this.cache.set(cacheKey, response, 60);
 
     return response;
+  }
+
+  async invalidateForBusiness(businessId: string): Promise<void> {
+    await this.cache.del('search:*');
   }
 
   private async textSearch(query: string | undefined, options: { limit: number; cursor?: string }) {

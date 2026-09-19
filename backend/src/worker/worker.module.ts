@@ -5,6 +5,7 @@ import { SmsModule } from '../libs/sms/sms.module';
 import { RedisModule } from '../libs/redis/redis.module';
 import { BusinessModule } from '../business/business.module';
 import { NotificationModule } from '../notification/notification.module';
+import { CustomerModule } from '../customer/customer.module';
 import { SendEmailProcessor } from './processors/send-email.processor';
 import { SendSmsProcessor } from './processors/send-sms.processor';
 import { SendRemindersProcessor } from './processors/send-reminders.processor';
@@ -22,6 +23,7 @@ import { WorkerCronService } from './worker-cron.service';
     RedisModule,
     BusinessModule,
     NotificationModule,
+    CustomerModule,
   ],
   providers: [
     SendEmailProcessor,

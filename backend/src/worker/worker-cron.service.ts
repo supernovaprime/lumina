@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/commo
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { SlotGeneratorService } from '../business/slot-generator.service';
 import { SlotReconcilerService } from '../business/slot-reconciler.service';
+import { GdprService } from '../customer/gdpr.service';
 import { BookingHoldExpiryProcessor } from './processors/booking-hold-expiry.processor';
 import { SendEmailProcessor } from './processors/send-email.processor';
 import { SendSmsProcessor } from './processors/send-sms.processor';
@@ -53,6 +54,7 @@ export class WorkerCronService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly slotGenerator: SlotGeneratorService,
     private readonly slotReconciler: SlotReconcilerService,
+    private readonly gdprService: GdprService,
     private readonly holdExpiryProcessor: BookingHoldExpiryProcessor,
     private readonly emailProcessor: SendEmailProcessor,
     private readonly smsProcessor: SendSmsProcessor,
@@ -67,6 +69,7 @@ export class WorkerCronService implements OnModuleInit, OnModuleDestroy {
     this.startReminders();
     this.startReviewRequests();
     this.startNotificationRetry();
+    this.startDataRetention();
     this.logger.log('Worker cron scheduling started');
   }
 
@@ -287,6 +290,33 @@ export class WorkerCronService implements OnModuleInit, OnModuleDestroy {
     };
 
     this.addInterval(run, 15 * MS.MINUTE);
+    run();
+  }
+
+  private startDataRetention() {
+    const run = async () => {
+      if (!this.dbAvailable && this.consecutiveFailures >= WorkerCronService.MAX_CONSECUTIVE_FAILURES) {
+        this.logger.debug('Data retention cron skipped — DB unavailable');
+        return;
+      }
+      try {
+        const result = await this.gdprService.cleanupExpiredTokens();
+        this.markDbAvailable();
+        if (result.deleted > 0) {
+          this.logger.log(`Data retention: cleaned up ${result.deleted} expired records`);
+        }
+      } catch (err: any) {
+        if (this.isDbError(err)) {
+          this.markDbUnavailable(err);
+        }
+        this.logger.error(
+          `Data retention cron failed: ${err?.message ?? err}`,
+          err?.stack,
+        );
+      }
+    };
+
+    this.addInterval(run, MS.DAY);
     run();
   }
 }

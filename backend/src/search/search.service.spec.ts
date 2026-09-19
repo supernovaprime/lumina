@@ -15,6 +15,9 @@ describe('SearchService', () => {
       business: {
         findMany: jest.fn().mockResolvedValue([]),
       },
+      timeSlot: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
     };
 
     cache = {
@@ -216,6 +219,67 @@ describe('SearchService', () => {
       expect(result).toHaveProperty('meta');
       expect(result.meta).toHaveProperty('hasMore');
       expect(result.meta).toHaveProperty('limit');
+    });
+
+    it('filters by openNow based on operatingHours', async () => {
+      const now = new Date();
+      const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+      const currentHour = String(now.getHours()).padStart(2, '0');
+      const closeHour = String(Math.min(now.getHours() + 2, 23)).padStart(2, '0');
+
+      geo.findNearby.mockResolvedValue({
+        businesses: [
+          { id: 'b1', name: 'Open Wash', rating: 4, services: [], operatingHours: { [dayOfWeek]: { open: '00:00', close: `${closeHour}:00` } } },
+          { id: 'b2', name: 'Closed Wash', rating: 4, services: [], operatingHours: { [dayOfWeek]: { open: '23:00', close: '23:59' } } },
+        ],
+        nextCursor: undefined,
+      });
+
+      const result = await service.search({
+        lat: 40.7128,
+        lng: -74.0060,
+        openNow: true,
+      });
+      expect(result.businesses.length).toBeGreaterThanOrEqual(1);
+      expect(result.businesses.some((b: any) => b.id === 'b1')).toBe(true);
+    });
+
+    it('includes nextAvailableSlot in response', async () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 1);
+      futureDate.setHours(0, 0, 0, 0);
+
+      geo.findNearby.mockResolvedValue({
+        businesses: [{ id: 'b1', name: 'Wash', rating: 4, services: [] }],
+        nextCursor: undefined,
+      });
+      prisma.timeSlot.findFirst.mockResolvedValue({
+        businessId: 'b1',
+        date: futureDate,
+        startTime: '09:00',
+        endTime: '09:30',
+      });
+
+      const result = await service.search({ lat: 40.7128, lng: -74.0060 });
+      expect(result.businesses[0].nextAvailableSlot).toBeDefined();
+      expect(result.businesses[0].nextAvailableSlot.startTime).toBe('09:00');
+    });
+
+    it('returns null nextAvailableSlot when no slots available', async () => {
+      geo.findNearby.mockResolvedValue({
+        businesses: [{ id: 'b1', name: 'Wash', rating: 4, services: [] }],
+        nextCursor: undefined,
+      });
+      prisma.timeSlot.findFirst.mockResolvedValue(null);
+
+      const result = await service.search({ lat: 40.7128, lng: -74.0060 });
+      expect(result.businesses[0].nextAvailableSlot).toBeNull();
+    });
+
+    it('invalidateForBusiness clears cache', async () => {
+      cache.del = jest.fn().mockResolvedValue(undefined);
+      await service.invalidateForBusiness('b1');
+      expect(cache.del).toHaveBeenCalledWith('search:*');
     });
   });
 

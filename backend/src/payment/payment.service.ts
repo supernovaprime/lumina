@@ -1,20 +1,34 @@
 import { Injectable, BadRequestException, NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { MoneyService } from '../libs/money/money.service';
+import { NotificationService } from '../notification/notification.service';
+import Stripe from 'stripe';
 
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
+  private readonly stripe: Stripe | null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly money: MoneyService,
-  ) {}
+    private readonly config: ConfigService,
+    private readonly notifications: NotificationService,
+  ) {
+    const secretKey = this.config.get<string>('STRIPE_SECRET_KEY');
+    if (secretKey) {
+      this.stripe = new Stripe(secretKey, { apiVersion: '2025-08-27.basil' as any });
+    } else {
+      this.stripe = null;
+      this.logger.warn('STRIPE_SECRET_KEY not set — Stripe API calls disabled');
+    }
+  }
 
   async createPayment(
     userId: string,
     dto: { bookingId: string; method: 'CARD' | 'CASH' },
-  ): Promise<{ paymentId: string; status: string; amount: number }> {
+  ): Promise<{ paymentId: string; status: string; amount: number; clientSecret?: string }> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: dto.bookingId },
     });
@@ -49,6 +63,44 @@ export class PaymentService {
       return p;
     });
 
+    if (dto.method === 'CARD') {
+      if (!this.stripe) {
+        this.logger.error('Stripe not configured — cannot create PaymentIntent');
+        return {
+          paymentId: payment.id,
+          status: payment.status,
+          amount: this.money.toCents(payment.amount),
+        };
+      }
+
+      try {
+        const intent = await this.stripe.paymentIntents.create({
+          amount: this.money.toCents(payment.amount),
+          currency: payment.currency.toLowerCase(),
+          metadata: { bookingId: dto.bookingId, paymentId: payment.id },
+        });
+
+        await this.prisma.payment.update({
+          where: { id: payment.id },
+          data: { transactionId: intent.id },
+        });
+
+        return {
+          paymentId: payment.id,
+          status: 'PROCESSING',
+          amount: this.money.toCents(payment.amount),
+          clientSecret: intent.client_secret ?? undefined,
+        };
+      } catch (err: any) {
+        this.logger.error(`Stripe PaymentIntent creation failed: ${err.message}`);
+        await this.prisma.payment.update({
+          where: { id: payment.id },
+          data: { status: 'FAILED' },
+        });
+        throw new BadRequestException('Payment processing failed');
+      }
+    }
+
     return {
       paymentId: payment.id,
       status: payment.status,
@@ -58,7 +110,7 @@ export class PaymentService {
 
   async refund(
     paymentId: string,
-    dto: { amountCents?: string; reason: string },
+    dto: { amountCents?: number; reason: string },
     actorId: string,
   ): Promise<{ refundId: string; status: string; amount: number }> {
     const payment = await this.prisma.payment.findUnique({
@@ -69,15 +121,41 @@ export class PaymentService {
     if (payment.status !== 'COMPLETED') throw new BadRequestException('Can only refund completed payments');
 
     const paymentAmountCents = this.money.toCents(payment.amount);
-    const refundAmount = dto.amountCents ? parseInt(dto.amountCents) : paymentAmountCents;
+    const refundAmount = dto.amountCents ?? paymentAmountCents;
     if (refundAmount > paymentAmountCents) {
       throw new BadRequestException('Refund amount exceeds payment amount');
     }
 
+    const isPartial = refundAmount < paymentAmountCents;
+
+    let stripeRefundId: string | null = null;
+    if (this.stripe && payment.transactionId) {
+      try {
+        const stripeRefund = await this.stripe.refunds.create({
+          payment_intent: payment.transactionId,
+          amount: refundAmount,
+        });
+        stripeRefundId = stripeRefund.id;
+      } catch (err: any) {
+        this.logger.error(`Stripe refund failed: ${err.message}`);
+        throw new BadRequestException('Refund processing failed');
+      }
+    }
+
     const refund = await this.prisma.$transaction(async (tx) => {
+      const r = await tx.refund.create({
+        data: {
+          paymentId,
+          amountCents: refundAmount,
+          reason: dto.reason,
+          status: 'COMPLETED',
+          stripeRefundId,
+        },
+      });
+
       await tx.payment.update({
         where: { id: paymentId },
-        data: { status: 'REFUNDED' },
+        data: { status: isPartial ? 'PARTIAL_REFUNDED' : 'REFUNDED' },
       });
 
       await tx.booking.update({
@@ -85,8 +163,24 @@ export class PaymentService {
         data: { status: 'REFUNDED' },
       });
 
-      return { id: `refund_${paymentId}`, status: 'COMPLETED' };
+      await tx.auditLog.create({
+        data: {
+          actorId,
+          action: 'PAYMENT_REFUND',
+          entityType: 'Payment',
+          entityId: paymentId,
+          metadata: { refundId: r.id, amountCents: refundAmount, reason: dto.reason, isPartial },
+        },
+      });
+
+      return r;
     });
+
+    this.notifications.enqueue('refund-processed', payment.bookingId, {
+      refundId: refund.id,
+      amountCents: refundAmount,
+      reason: dto.reason,
+    }).catch((err) => this.logger.error(`Refund notification failed: ${err.message}`));
 
     return {
       refundId: refund.id,
@@ -116,6 +210,10 @@ export class PaymentService {
             });
           });
           this.logger.log(`Payment ${payment.id} confirmed via webhook`);
+
+          this.notifications.notifyPaymentSucceeded(payment.bookingId).catch((err) => {
+            this.logger.error(`Payment success notification failed: ${err.message}`);
+          });
         }
         break;
       }
@@ -129,6 +227,11 @@ export class PaymentService {
             data: { status: 'FAILED' },
           });
           this.logger.warn(`Payment ${payment.id} failed via webhook`);
+
+          this.notifications.enqueue('booking-cancelled', payment.bookingId, {
+            bookingId: payment.bookingId,
+            cancelReason: 'Payment failed',
+          }).catch((err) => this.logger.error(`Payment failure notification failed: ${err.message}`));
         }
         break;
       }
@@ -146,6 +249,10 @@ export class PaymentService {
             data: { status: 'REFUNDED' },
           });
           this.logger.log(`Payment ${payment.id} refunded via webhook`);
+
+          this.notifications.enqueue('refund-processed', payment.bookingId, {
+            bookingId: payment.bookingId,
+          }).catch((err) => this.logger.error(`Refund notification failed: ${err.message}`));
         }
         break;
       }

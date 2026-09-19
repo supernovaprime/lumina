@@ -9,8 +9,8 @@ describe('ReviewService', () => {
 
   beforeEach(async () => {
     prisma = {
-      booking: { findUnique: jest.fn() },
-      review: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn(), count: jest.fn(), aggregate: jest.fn() },
+      booking: { findUnique: jest.fn(), update: jest.fn() },
+      review: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn(), count: jest.fn(), aggregate: jest.fn(), delete: jest.fn() },
       business: { update: jest.fn() },
       $transaction: jest.fn(),
     };
@@ -28,9 +28,10 @@ describe('ReviewService', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('create', () => {
-    it('creates review for COMPLETED booking', async () => {
+    it('creates review for COMPLETED booking after 24h cooldown', async () => {
+      const oldDate = new Date(Date.now() - 25 * 60 * 60 * 1000);
       prisma.booking.findUnique.mockResolvedValue({
-        id: 'b1', customerId: 'user1', status: 'COMPLETED', businessId: 'biz1', review: null,
+        id: 'b1', customerId: 'user1', status: 'COMPLETED', businessId: 'biz1', review: null, updatedAt: oldDate,
       });
       prisma.$transaction.mockImplementation(async (fn: any) => {
         prisma.review.create.mockResolvedValue({ id: 'r1', rating: 5 });
@@ -43,6 +44,14 @@ describe('ReviewService', () => {
       expect(result.rating).toBe(5);
     });
 
+    it('throws BadRequestException within 24h cooldown', async () => {
+      const recentDate = new Date(Date.now() - 1 * 60 * 60 * 1000);
+      prisma.booking.findUnique.mockResolvedValue({
+        id: 'b1', customerId: 'user1', status: 'COMPLETED', businessId: 'biz1', review: null, updatedAt: recentDate,
+      });
+      await expect(service.create('user1', { bookingId: 'b1', rating: 5 })).rejects.toThrow(BadRequestException);
+    });
+
     it('throws NotFoundException for non-owned booking', async () => {
       prisma.booking.findUnique.mockResolvedValue(null);
       await expect(service.create('user1', { bookingId: 'b1', rating: 5 })).rejects.toThrow(NotFoundException);
@@ -50,21 +59,22 @@ describe('ReviewService', () => {
 
     it('throws BadRequestException for non-COMPLETED booking', async () => {
       prisma.booking.findUnique.mockResolvedValue({
-        id: 'b1', customerId: 'user1', status: 'PENDING', businessId: 'biz1', review: null,
+        id: 'b1', customerId: 'user1', status: 'PENDING', businessId: 'biz1', review: null, updatedAt: new Date(),
       });
       await expect(service.create('user1', { bookingId: 'b1', rating: 5 })).rejects.toThrow(BadRequestException);
     });
 
     it('throws BadRequestException for duplicate review', async () => {
       prisma.booking.findUnique.mockResolvedValue({
-        id: 'b1', customerId: 'user1', status: 'COMPLETED', businessId: 'biz1', review: { id: 'r1' },
+        id: 'b1', customerId: 'user1', status: 'COMPLETED', businessId: 'biz1', review: { id: 'r1' }, updatedAt: new Date(),
       });
       await expect(service.create('user1', { bookingId: 'b1', rating: 5 })).rejects.toThrow(BadRequestException);
     });
 
     it('recomputes business rating', async () => {
+      const oldDate = new Date(Date.now() - 25 * 60 * 60 * 1000);
       prisma.booking.findUnique.mockResolvedValue({
-        id: 'b1', customerId: 'user1', status: 'COMPLETED', businessId: 'biz1', review: null,
+        id: 'b1', customerId: 'user1', status: 'COMPLETED', businessId: 'biz1', review: null, updatedAt: oldDate,
       });
       prisma.$transaction.mockImplementation(async (fn: any) => {
         prisma.review.create.mockResolvedValue({});
@@ -141,6 +151,18 @@ describe('ReviewService', () => {
       });
     });
 
+    it('edits existing response when isEdit=true', async () => {
+      prisma.review.findUnique.mockResolvedValue({
+        id: 'r1',
+        business: { ownerId: 'owner1' },
+        response: 'Old response',
+      });
+      prisma.review.update.mockResolvedValue({ id: 'r1', response: 'Updated response' });
+
+      const result = await service.respond('r1', 'owner1', 'Updated response', true);
+      expect(result.response).toBe('Updated response');
+    });
+
     it('throws NotFoundException if review not found', async () => {
       prisma.review.findUnique.mockResolvedValue(null);
       await expect(service.respond('r1', 'owner1', 'X')).rejects.toThrow(NotFoundException);
@@ -155,13 +177,36 @@ describe('ReviewService', () => {
       await expect(service.respond('r1', 'owner1', 'X')).rejects.toThrow(ForbiddenException);
     });
 
-    it('throws ConflictException if already responded', async () => {
+    it('throws ConflictException if already responded (not edit)', async () => {
       prisma.review.findUnique.mockResolvedValue({
         id: 'r1',
         business: { ownerId: 'owner1' },
         response: 'Already responded',
       });
       await expect(service.respond('r1', 'owner1', 'X')).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('delete', () => {
+    it('deletes review and recomputes rating', async () => {
+      prisma.review.findUnique.mockResolvedValue({
+        id: 'r1', businessId: 'biz1',
+      });
+      prisma.$transaction.mockImplementation(async (fn: any) => {
+        prisma.review.delete.mockResolvedValue({});
+        prisma.review.aggregate.mockResolvedValue({ _avg: { rating: 4 }, _count: { rating: 5 } });
+        prisma.business.update.mockResolvedValue({});
+        return fn(prisma);
+      });
+
+      const result = await service.delete('r1');
+      expect(result.message).toBe('Review deleted');
+      expect(prisma.review.delete).toHaveBeenCalledWith({ where: { id: 'r1' } });
+    });
+
+    it('throws NotFoundException for non-existent review', async () => {
+      prisma.review.findUnique.mockResolvedValue(null);
+      await expect(service.delete('r999')).rejects.toThrow(NotFoundException);
     });
   });
 });

@@ -17,26 +17,31 @@ export class RedisService implements OnModuleDestroy {
       return;
     }
 
-    this.client = new Redis(redisUrl, {
-      maxRetriesPerRequest: 3,
-      retryStrategy(times) {
-        if (times > 5) return null;
-        return Math.min(times * 100, 2000);
-      },
-      lazyConnect: true,
-    });
+    try {
+      this.client = new Redis(redisUrl, {
+        maxRetriesPerRequest: 3,
+        retryStrategy(times) {
+          if (times > 5) return null;
+          return Math.min(times * 100, 2000);
+        },
+        lazyConnect: true,
+      });
 
-    this.client.on('error', (err) => {
-      this.logger.warn(`Redis error: ${err.message}`);
-    });
+      this.client.on('error', (err) => {
+        this.logger.warn(`Redis error: ${err.message}`);
+      });
 
-    this.client.on('connect', () => {
-      this.logger.log('Redis connected');
-    });
+      this.client.on('connect', () => {
+        this.logger.log('Redis connected');
+      });
 
-    this.client.connect().catch(() => {
-      this.logger.warn('Redis unavailable — caching will be no-op');
-    });
+      this.client.connect().catch(() => {
+        this.logger.warn('Redis unavailable — caching will be no-op');
+      });
+    } catch {
+      this.logger.warn('Invalid REDIS_URL — Redis disabled (caching will be no-op)');
+      this.client = null;
+    }
   }
 
   async onModuleDestroy() {

@@ -13,6 +13,9 @@ describe('FavoriteService', () => {
         upsert: jest.fn(),
         deleteMany: jest.fn(),
       },
+      timeSlot: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -28,7 +31,7 @@ describe('FavoriteService', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('findAll', () => {
-    it('should return all favorites with business info', async () => {
+    it('should return all favorites with business info and nextAvailableSlot', async () => {
       const favorites = [{
         id: 'f1',
         businessId: 'b1',
@@ -38,7 +41,8 @@ describe('FavoriteService', () => {
 
       const result = await service.findAll('c1');
 
-      expect(result).toEqual(favorites);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toHaveProperty('nextAvailableSlot');
       expect(prisma.favorite.findMany).toHaveBeenCalledWith({
         where: { customerId: 'c1' },
         include: expect.objectContaining({

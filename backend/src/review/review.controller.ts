@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, HttpCode } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, HttpCode } from '@nestjs/common';
 import { JwtAuthGuard } from '../libs/common/guards/jwt-auth.guard';
 import { RolesGuard } from '../libs/common/guards/roles.guard';
 import { Roles } from '../libs/common/decorators/roles.decorator';
@@ -35,6 +35,23 @@ export class ReviewController {
     @Body() dto: RespondToReviewDto,
   ) {
     return this.reviewService.respond(id, user.userId, dto.response);
+  }
+
+  @Patch(':id/respond')
+  @Roles('BUSINESS')
+  editResponse(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: RespondToReviewDto,
+  ) {
+    return this.reviewService.respond(id, user.userId, dto.response, true);
+  }
+
+  @Delete(':id')
+  @Roles('ADMIN')
+  @HttpCode(200)
+  delete(@Param('id') id: string) {
+    return this.reviewService.delete(id);
   }
 
   @Get('business/:businessId')

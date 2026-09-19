@@ -9,6 +9,7 @@ import { CurrentUser } from '../libs/common/decorators/current-user.decorator';
 import { VehicleService } from './vehicle.service';
 import { BookingHistoryService } from './booking-history.service';
 import { FavoriteService } from './favorite.service';
+import { GdprService } from './gdpr.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { ListCustomerBookingsDto } from './dto/list-customer-bookings.dto';
@@ -21,6 +22,7 @@ export class CustomerController {
     private readonly vehicleService: VehicleService,
     private readonly bookingHistoryService: BookingHistoryService,
     private readonly favoriteService: FavoriteService,
+    private readonly gdprService: GdprService,
   ) {}
 
   @Get('vehicles')
@@ -80,5 +82,17 @@ export class CustomerController {
     @Param('businessId', ParseUUIDPipe) businessId: string,
   ) {
     return this.favoriteService.remove(customerId, businessId);
+  }
+
+  // ─── GDPR / Data Retention ──────────────────────────────────
+
+  @Get('export')
+  requestExport(@CurrentUser('id') userId: string) {
+    return this.gdprService.requestExport(userId);
+  }
+
+  @Delete()
+  anonymizeAccount(@CurrentUser('id') userId: string) {
+    return this.gdprService.anonymizeAccount(userId);
   }
 }

@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../libs/prisma/prisma.service';
-import { addDays } from 'date-fns';
+import { addDays, addHours } from 'date-fns';
 
 @Injectable()
 export class ReviewService {
@@ -16,6 +16,11 @@ export class ReviewService {
     if (booking.customerId !== userId) throw new NotFoundException('Booking not found');
     if (booking.status !== 'COMPLETED') throw new BadRequestException('Can only review completed bookings');
     if (booking.review) throw new BadRequestException('Review already exists for this booking');
+
+    const cooldownEnd = addHours(booking.updatedAt, 24);
+    if (new Date() < cooldownEnd) {
+      throw new BadRequestException('Please wait 24 hours after booking completion before leaving a review');
+    }
 
     const review = await this.prisma.$transaction(async (tx) => {
       const r = await tx.review.create({
@@ -85,7 +90,7 @@ export class ReviewService {
     return updated;
   }
 
-  async respond(reviewId: string, userId: string, response: string) {
+  async respond(reviewId: string, userId: string, response: string, isEdit: boolean = false) {
     const review = await this.prisma.review.findUnique({
       where: { id: reviewId },
       include: { business: true },
@@ -95,7 +100,7 @@ export class ReviewService {
     if (review.business.ownerId !== userId) {
       throw new ForbiddenException('You can only respond to reviews for your business');
     }
-    if (review.response) {
+    if (review.response && !isEdit) {
       throw new ConflictException({
         code: 'ALREADY_RESPONDED',
         message: 'You have already responded to this review',
@@ -123,5 +128,30 @@ export class ReviewService {
     ]);
 
     return { reviews, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  async delete(reviewId: string) {
+    const review = await this.prisma.review.findUnique({ where: { id: reviewId } });
+    if (!review) throw new NotFoundException('Review not found');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.review.delete({ where: { id: reviewId } });
+
+      const aggregate = await tx.review.aggregate({
+        where: { businessId: review.businessId, isHidden: false },
+        _avg: { rating: true },
+        _count: { rating: true },
+      });
+
+      await tx.business.update({
+        where: { id: review.businessId },
+        data: {
+          rating: aggregate._avg.rating ?? 0,
+          reviewCount: aggregate._count.rating,
+        },
+      });
+    });
+
+    return { message: 'Review deleted' };
   }
 }

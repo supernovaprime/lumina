@@ -3,6 +3,7 @@ import { WorkerCronService } from './worker-cron.service';
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { SlotGeneratorService } from '../business/slot-generator.service';
 import { SlotReconcilerService } from '../business/slot-reconciler.service';
+import { GdprService } from '../customer/gdpr.service';
 import { BookingHoldExpiryProcessor } from './processors/booking-hold-expiry.processor';
 import { SendEmailProcessor } from './processors/send-email.processor';
 import { SendSmsProcessor } from './processors/send-sms.processor';
@@ -14,6 +15,7 @@ describe('WorkerCronService', () => {
   let prisma: any;
   let slotGenerator: any;
   let slotReconciler: any;
+  let gdprService: any;
   let holdExpiryProcessor: any;
   let emailProcessor: any;
   let smsProcessor: any;
@@ -29,6 +31,7 @@ describe('WorkerCronService', () => {
     };
     slotGenerator = { generateSlots: jest.fn().mockResolvedValue({ created: 0 }) };
     slotReconciler = { reconcileFutureSlots: jest.fn().mockResolvedValue({ deleted: 0, orphaned: 0 }) };
+    gdprService = { cleanupExpiredTokens: jest.fn().mockResolvedValue({ deleted: 0 }) };
     holdExpiryProcessor = { process: jest.fn().mockResolvedValue(undefined) };
     emailProcessor = { process: jest.fn().mockResolvedValue(undefined) };
     smsProcessor = { process: jest.fn().mockResolvedValue(undefined) };
@@ -41,6 +44,7 @@ describe('WorkerCronService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: SlotGeneratorService, useValue: slotGenerator },
         { provide: SlotReconcilerService, useValue: slotReconciler },
+        { provide: GdprService, useValue: gdprService },
         { provide: BookingHoldExpiryProcessor, useValue: holdExpiryProcessor },
         { provide: SendEmailProcessor, useValue: emailProcessor },
         { provide: SendSmsProcessor, useValue: smsProcessor },
@@ -58,9 +62,9 @@ describe('WorkerCronService', () => {
   });
 
   describe('onModuleInit', () => {
-    it('should start all 6 cron timers', () => {
+    it('should start all 7 cron timers', () => {
       service.onModuleInit();
-      expect((service as any).timers.length).toBe(6);
+      expect((service as any).timers.length).toBe(7);
     });
   });
 
@@ -226,11 +230,38 @@ describe('WorkerCronService', () => {
     });
   });
 
+  describe('data retention', () => {
+    it('should call gdprService.cleanupExpiredTokens on init', async () => {
+      service.onModuleInit();
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(gdprService.cleanupExpiredTokens).toHaveBeenCalled();
+    });
+
+    it('should log cleanup results when records are deleted', async () => {
+      gdprService.cleanupExpiredTokens.mockResolvedValue({ deleted: 10 });
+
+      service.onModuleInit();
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(gdprService.cleanupExpiredTokens).toHaveBeenCalled();
+    });
+
+    it('should handle cleanup errors gracefully', async () => {
+      gdprService.cleanupExpiredTokens.mockRejectedValue(new Error('DB down'));
+
+      service.onModuleInit();
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(gdprService.cleanupExpiredTokens).toHaveBeenCalled();
+    });
+  });
+
   describe('DB unavailable handling', () => {
     it('should detect Prisma P2021 error and mark DB unavailable', async () => {
-      prisma.business.findMany.mockRejectedValue(
-        Object.assign(new Error('The table `Business` does not exist'), { code: 'P2021' }),
-      );
+      const dbErr = Object.assign(new Error('The table `Business` does not exist'), { code: 'P2021' });
+      prisma.business.findMany.mockRejectedValue(dbErr);
+      gdprService.cleanupExpiredTokens.mockRejectedValue(dbErr);
 
       service.onModuleInit();
       await new Promise((r) => setTimeout(r, 50));
@@ -240,9 +271,9 @@ describe('WorkerCronService', () => {
     });
 
     it('should detect Prisma P1001 error and mark DB unavailable', async () => {
-      prisma.business.findMany.mockRejectedValue(
-        Object.assign(new Error("Can't reach database server"), { code: 'P1001' }),
-      );
+      const dbErr = Object.assign(new Error("Can't reach database server"), { code: 'P1001' });
+      prisma.business.findMany.mockRejectedValue(dbErr);
+      gdprService.cleanupExpiredTokens.mockRejectedValue(dbErr);
 
       service.onModuleInit();
       await new Promise((r) => setTimeout(r, 50));
@@ -251,9 +282,9 @@ describe('WorkerCronService', () => {
     });
 
     it('should detect connection error by message text', async () => {
-      prisma.business.findMany.mockRejectedValue(
-        new Error('Connection refused to database'),
-      );
+      const dbErr = new Error('Connection refused to database');
+      prisma.business.findMany.mockRejectedValue(dbErr);
+      gdprService.cleanupExpiredTokens.mockRejectedValue(dbErr);
 
       service.onModuleInit();
       await new Promise((r) => setTimeout(r, 50));
@@ -262,16 +293,21 @@ describe('WorkerCronService', () => {
     });
 
     it('should recover when DB becomes available again', async () => {
-      prisma.business.findMany.mockRejectedValue(
-        Object.assign(new Error('Table not found'), { code: 'P2021' }),
-      );
+      const dbErr = Object.assign(new Error('Table not found'), { code: 'P2021' });
+      prisma.business.findMany.mockRejectedValue(dbErr);
+      gdprService.cleanupExpiredTokens.mockRejectedValue(dbErr);
       service.onModuleInit();
       await new Promise((r) => setTimeout(r, 50));
       expect((service as any).dbAvailable).toBe(false);
+      expect((service as any).consecutiveFailures).toBeGreaterThanOrEqual(3);
 
+      service.onModuleDestroy();
+      (service as any).dbAvailable = false;
+      (service as any).consecutiveFailures = 2;
       prisma.business.findMany.mockResolvedValue([{ id: 'biz1' }]);
+      gdprService.cleanupExpiredTokens.mockResolvedValue({ deleted: 0 });
       service.onModuleInit();
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 100));
       expect((service as any).dbAvailable).toBe(true);
       expect((service as any).consecutiveFailures).toBe(0);
     });
