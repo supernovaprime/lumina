@@ -39,7 +39,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         this.logger.warn('Pooler unreachable — falling back to direct connection...');
         await this._client.$disconnect().catch(() => {});
         this._client = new PrismaClient({
-          log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+      log: process.env.NODE_ENV === 'development' ? ['error'] : ['error'],
         });
         try {
           await this._client.$connect();
