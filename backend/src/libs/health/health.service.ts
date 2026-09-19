@@ -60,7 +60,9 @@ export class HealthService {
   async checkPostgres(): Promise<ServiceHealth> {
     const start = Date.now();
     try {
-      await this.prisma.$queryRawUnsafe('SELECT 1');
+      await this.prisma.retryOnTransientError(() =>
+        this.prisma.$queryRawUnsafe('SELECT 1'),
+      );
       return {
         name: 'PostgreSQL',
         status: 'healthy',

@@ -20,13 +20,15 @@ export class SendRemindersProcessor {
     const window24hStart = new Date(in24h.getTime() - 15 * 60 * 1000);
     const window24hEnd = new Date(in24h.getTime() + 15 * 60 * 1000);
 
-    const bookings24h = await this.prisma.booking.findMany({
-      where: {
-        status: 'CONFIRMED',
-        date: { gte: window24hStart, lte: window24hEnd },
-      },
-      include: { customer: true, business: true, service: true },
-    });
+    const bookings24h = await this.prisma.retryOnTransientError(() =>
+      this.prisma.booking.findMany({
+        where: {
+          status: 'CONFIRMED',
+          date: { gte: window24hStart, lte: window24hEnd },
+        },
+        include: { customer: true, business: true, service: true },
+      }),
+    );
 
     for (const booking of bookings24h) {
       try {
@@ -48,13 +50,15 @@ export class SendRemindersProcessor {
     const window2hStart = new Date(in2h.getTime() - 15 * 60 * 1000);
     const window2hEnd = new Date(in2h.getTime() + 15 * 60 * 1000);
 
-    const bookings2h = await this.prisma.booking.findMany({
-      where: {
-        status: 'CONFIRMED',
-        date: { gte: window2hStart, lte: window2hEnd },
-      },
-      include: { customer: true, business: true, service: true },
-    });
+    const bookings2h = await this.prisma.retryOnTransientError(() =>
+      this.prisma.booking.findMany({
+        where: {
+          status: 'CONFIRMED',
+          date: { gte: window2hStart, lte: window2hEnd },
+        },
+        include: { customer: true, business: true, service: true },
+      }),
+    );
 
     for (const booking of bookings2h) {
       try {

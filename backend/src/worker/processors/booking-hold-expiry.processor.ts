@@ -17,13 +17,15 @@ export class BookingHoldExpiryProcessor {
 
     let expiredBookings: any[];
     try {
-      expiredBookings = await this.prisma.booking.findMany({
-        where: {
-          status: 'PENDING',
-          createdAt: { lt: cutoff },
-        },
-        include: { timeSlot_rel: true },
-      });
+      expiredBookings = await this.prisma.retryOnTransientError(() =>
+        this.prisma.booking.findMany({
+          where: {
+            status: 'PENDING',
+            createdAt: { lt: cutoff },
+          },
+          include: { timeSlot_rel: true },
+        }),
+      );
     } catch (err: any) {
       this.logger.error(`Hold expiry query failed: ${err?.message ?? err}`, err?.stack);
       return;
