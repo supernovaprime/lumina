@@ -10,9 +10,11 @@
 
 ## 0. Global rules for this page
 
-- **Always-dark brand surfaces:** Navbar, Hero, HowItWorks band, AppBand, Footer render on
-  `navy-950` + warm-white text in **both** themes (brand immersion, matches mockup).
-  Content sections (Services, Testimonials) adapt via semantic tokens (§1.2).
+- **Fully adaptive surfaces (locked):** every section, panel, card, and banner uses the root
+  background (`bg-background`: white light / navy-950 dark) — nothing hardcodes a dark fill.
+  Cards are `bg-transparent` + `border-border`; text uses `text-foreground`/`text-muted`.
+  Gold text uses `gold-600/700` in light mode and `gold-300/400/500` in dark for contrast.
+  The only permanently dark element is the phone-screen mock in AppBand (a dark-mode app screenshot).
 - **Section rhythm:** `py-16 md:py-24`, container `max-w-7xl mx-auto px-4 md:px-8`.
 - **Section header pattern:** Montserrat 700 title left + supporting Inter subcopy under it;
   right-aligned link pill (`View All Services →`, `border-border rounded-full`) where mockup shows one.
@@ -28,7 +30,7 @@
 
 ## 1. Navbar (`components/landing/Navbar.tsx`, client — scroll state + mobile menu)
 
-**Desktop layout (h-16/20, sticky, navy-950/90 backdrop-blur, border-b white/10):**
+**Desktop layout (h-16/20, sticky, adaptive bg with blur, `border-border`):**
 - Left: logo mark (`Logo (2).svg`, h-9) + wordmark stack — "CarWash" Montserrat 800
   (white + gold "Wash" segment) + tagline `Clean Rides. Better Days.` (10px, muted).
   (Wordmark text updates to Lumina brand at implementation; layout unchanged.)
@@ -44,8 +46,8 @@
 
 ## 2. Hero (`components/landing/Hero.tsx`, server + client CTA row)
 
-**Grid:** 2-col (`lg:grid-cols-[1.05fr_1fr]`), left copy on navy-950, right car visual full-bleed
-with left→right navy scrim (text contrast, both themes identical here).
+**Grid:** 2-col (`lg:grid-cols-[1.05fr_1fr]`), left copy on the adaptive background, right visual panel
+(`bg-background`, border token) with logo mark + gold script accent.
 - Eyebrow: gold-outlined pill `PREMIUM CAR WASH SERVICE →` (11px, tracking-widest, gold-400).
 - H1 Montserrat 800, `text-4xl md:text-6xl`: line 1 white `Your Car Deserves`,
   line 2 gold-500 `The Best Care`.
@@ -87,9 +89,9 @@ Hover: lift + arrow slides. Category slugs map to backend `ServiceCategory`
 
 ---
 
-## 4. How It Works (`components/landing/HowItWorks.tsx` — always-dark band)
+## 4. How It Works (`components/landing/HowItWorks.tsx` — adaptive band)
 
-Navy-950 band, 2-col: left steps, right image w/ caption.
+Adaptive band, 2-col: left steps, right image w/ caption.
 Header: `How It Works` (white) + subcopy *"Get your car washed in just a few simple steps."*
 **Steps (numbered gold-ring circles, dashed gold connector arrows):**
 1. `Find a Car Wash` — *Search for nearby car washes or browse our list of trusted partners.* (icon: search)
@@ -115,10 +117,9 @@ Behavior: scroll-snap row + arrow scroll + dots; auto-advance 6s paused on hover
 
 ---
 
-## 6. AppBand (`components/landing/AppBand.tsx` — always-dark)
+## 6. AppBand (`components/landing/AppBand.tsx` — adaptive)
 
-Dark band with interior-car backdrop + right phone visual (hand holding phone showing mini app —
-reuse `dashboard_screen.jpg` crop or logo splash; lazy).
+Adaptive band; phone frame adapts, screen shows dark-mode app UI (intentional).
 Eyebrow gold `DOWNLOAD OUR APP` + H2 Montserrat 800 white `Clean Rides, Right at Your Fingertips` +
 copy *"Book, pay and manage your car wash services anytime, anywhere."*
 Store badges: App Store + Google Play images, rendered **disabled with `Coming soon` tooltip**
@@ -126,7 +127,7 @@ Store badges: App Store + Google Play images, rendered **disabled with `Coming s
 
 ---
 
-## 7. Footer (`components/layout/Footer.tsx` — always-dark navy-950)
+## 7. Footer (`components/layout/Footer.tsx` — adaptive)
 
 4 columns: (1) logo stack + blurb + © line `© 2025 CarWash. All rights reserved.`
 (2) `Quick Links`: Home, Services, Find a Car Wash, About Us, Contact

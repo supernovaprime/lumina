@@ -47,21 +47,25 @@ Brand anchors (user-supplied, **do not change these hex values**):
 
 ### 1.2 Semantic tokens — light & dark
 
-Light = warm paper background, navy ink text. Dark = navy-950 abyss background, warm-white text.
-Primary action = teal; high-emphasis CTA / rating = gold. Destructive = standard red (`--color-red-600` Tailwind default).
+Light = white background, navy ink text. Dark = navy-950 abyss background, warm-white text.
+**Role mapping (locked): primary = deep blue** (CTAs, buttons), **secondary = gold**
+(accents, stars, badges, highlights), **tertiary = light blue/teal** (links, info, focus).
+Cards are **transparent** (`bg-transparent`) — they adopt the page background in each mode;
+borders carry the definition. Destructive = standard red (`--color-red-600` Tailwind default).
 
 | Token | Light | Dark |
 |---|---|---|
 | `background` | `#ffffff` | `#001219` (navy-950) |
-| `surface` (cards, muted bg) | `#f0f7f8` (navy-50) | `#003844` (navy-900) |
-| `surface-2` (hover, inset) | `#dcebee` (navy-100) | `#005f73` (navy-800) |
+| `surface` (transparent — page bg shows through) | transparent | transparent |
+| `surface-2` (hover wells, inset tints) | `#f0f7f8` (navy-50) | `#003844` (navy-900) |
 | `foreground` (body text) | `#001219` (navy-950) | `#f4f1ea` (warm white) |
 | `muted` (secondary text) | `#0e6b7f` (navy-600) | `#8abcc6` (navy-300) |
 | `border` | `#b9d7dd` (navy-200) | `#0e6266` (teal-800) |
-| `primary` (buttons, links) | `#0a9396` (teal-600) | `#3db4ba` (teal-400) |
-| `primary-fg` (on-primary text) | `#ffffff` | `#001219` |
-| `accent` (CTA, stars, badges) | `#ee9b00` (gold-500) | `#ee9b00` (gold-500) |
+| `primary` (buttons, CTAs — deep blue) | `#005f73` (navy-800) | `#0e6b7f` (navy-600) |
+| `primary-fg` (on-primary text) | `#ffffff` | `#ffffff` |
+| `accent` (secondary — stars, badges, highlights) | `#ee9b00` (gold-500) | `#ee9b00` (gold-500) |
 | `accent-soft` (accent bg tint) | `#e9d8a6` (gold-200) | `#713f0c` (gold-900) |
+| `tertiary` (links, info, hovers — light blue) | `#0a9396` (teal-600) | `#3db4ba` (teal-400) |
 | `ring` (focus) | `#0a9396` (teal-600) | `#3db4ba` (teal-400) |
 
 ### 1.3 `globals.css` scaffold (Tailwind v4 + `next-themes`, class-based dark)
@@ -118,28 +122,30 @@ Primary action = teal; high-emphasis CTA / rating = gold. Destructive = standard
 :root {
   --background: #ffffff;
   --foreground: #001219;
-  --surface: #f0f7f8;
-  --surface-2: #dcebee;
+  --surface: transparent;
+  --surface-2: #f0f7f8;
   --muted: #0e6b7f;
   --border: #b9d7dd;
-  --primary: #0a9396;
+  --primary: #005f73;
   --primary-fg: #ffffff;
   --accent: #ee9b00;
   --accent-soft: #e9d8a6;
+  --tertiary: #0a9396;
   --ring: #0a9396;
 }
 
 .dark {
   --background: #001219;
   --foreground: #f4f1ea;
-  --surface: #003844;
-  --surface-2: #005f73;
+  --surface: transparent;
+  --surface-2: #003844;
   --muted: #8abcc6;
   --border: #0e6266;
-  --primary: #3db4ba;
-  --primary-fg: #001219;
+  --primary: #0e6b7f;
+  --primary-fg: #ffffff;
   --accent: #ee9b00;
   --accent-soft: #713f0c;
+  --tertiary: #3db4ba;
   --ring: #3db4ba;
 }
 
@@ -154,6 +160,7 @@ Primary action = teal; high-emphasis CTA / rating = gold. Destructive = standard
   --color-primary-fg: var(--primary-fg);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-tertiary: var(--tertiary);
   --color-ring: var(--ring);
 }
 ```
@@ -206,8 +213,8 @@ Loader wiring (Phase 1 implements):
   // <html className={`${display.variable} ${sans.variable} ${mono.variable}`}>
   ```
 - Radius: cards `rounded-xl`, buttons/inputs `rounded-lg`, pills `rounded-full`.
-- shadcn/ui mapping: `primary` → teal (§1.2), `accent` → gold-soft bg + gold-700/300 text,
-  `destructive` → default red, `muted` → navy tints. Install shadcn components with the
+- shadcn/ui mapping: `primary` → deep blue (§1.2), `accent` → gold-soft bg + gold-700/300 text,
+  `tertiary` → teal for links/info, `destructive` → default red, `muted` → navy tints. Install shadcn components with the
   `new-york` style and re-point its CSS vars at §1.2 tokens.
 
 ---
