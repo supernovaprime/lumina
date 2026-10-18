@@ -155,7 +155,7 @@ export class PaymentService {
 
       await tx.payment.update({
         where: { id: paymentId },
-        data: { status: isPartial ? 'PARTIAL_REFUNDED' : 'REFUNDED' },
+        data: { status: (isPartial ? 'PARTIAL_REFUNDED' : 'REFUNDED') as any },
       });
 
       await tx.booking.update({
