@@ -1,26 +1,34 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as formData from 'form-data';
+import * as FormData from 'form-data';
 import Mailgun from 'mailgun.js';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private readonly mg: Mailgun;
+  private readonly client: any | null;
   private readonly domain: string;
   private readonly fromEmail: string;
   private readonly fromName: string;
 
   constructor(private readonly config: ConfigService) {
-    this.mg = new Mailgun(formData);
     this.domain = this.config.get<string>('MAILGUN_DOMAIN', '');
     this.fromEmail = this.config.get<string>('FROM_EMAIL', 'noreply@carwash.com');
     this.fromName = this.config.get<string>('FROM_NAME', 'CarWash');
 
-    (this.mg as any).client({
-      username: 'api',
-      key: this.config.get<string>('MAILGUN_API_KEY', ''),
-    });
+    const apiKey = this.config.get<string>('MAILGUN_API_KEY');
+    if (apiKey) {
+      try {
+        const mg = new Mailgun(FormData as any);
+        this.client = mg.client({ username: 'api', key: apiKey });
+      } catch (error: any) {
+        this.logger.warn(`Failed to initialize Mailgun client: ${error?.message}`);
+        this.client = null;
+      }
+    } else {
+      this.logger.warn('MAILGUN_API_KEY not set — emails will not be sent');
+      this.client = null;
+    }
   }
 
   async send(data: {
@@ -29,8 +37,13 @@ export class EmailService {
     html: string;
     text?: string;
   }): Promise<void> {
+    if (!this.client) {
+      this.logger.warn(`Email not sent (Mailgun not configured): ${data.subject}`);
+      return;
+    }
+
     try {
-      const result = await (this.mg as any).messages.create(this.domain, {
+      const result = await this.client.messages.create(this.domain, {
         from: `${this.fromName} <${this.fromEmail}>`,
         to: [data.to],
         subject: data.subject,
