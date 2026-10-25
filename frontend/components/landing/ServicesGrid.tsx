@@ -25,7 +25,7 @@ const icons: Record<ServiceCategory["icon"], LucideIcon> = {
 
 export function ServicesGrid() {
   return (
-    <section id="services" aria-labelledby="services-heading" className="bg-background">
+    <section id="services" aria-labelledby="services-heading" className="relative">
       <div className="mx-auto max-w-7xl px-4 py-16 md:px-8 md:py-24">
         <Reveal className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -54,7 +54,7 @@ export function ServicesGrid() {
             return (
               <li key={service.slug}>
                 <Reveal delayMs={Math.min(i, 4) * 80} className="h-full">
-                  <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-transparent transition duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-navy-950/10">
+                  <article className="group flex h-full flex-col overflow-hidden rounded-xl bg-background/85 shadow-sm backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-navy-950/10">
                     {/* Photo slot: branded tile until photoshoot assets land (TODO) */}
                     <div className="relative h-36 overflow-hidden bg-[linear-gradient(135deg,#005f73,#0a9396_60%,#ee9b00_130%)]">
                       <Icon

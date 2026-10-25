@@ -2,18 +2,79 @@ import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/commo
 import { PrismaClient } from '@prisma/client';
 
 const OWN_PROPS = new Set([
-  'constructor', 'onModuleInit', 'onModuleDestroy', '_client', 'logger',
+  'constructor',
+  'onModuleInit',
+  'onModuleDestroy',
+  '_client',
+  'logger',
+  'connected',
+  'recoveryTimer',
 ]);
+
+const CONNECT_ATTEMPTS = 6;
+const CONNECT_BASE_DELAY_MS = 1_000;
+const RECOVERY_INTERVAL_MS = 15_000;
+
+const logConfig = () => ({
+  log: (process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error']) as any,
+});
+
+function buildClient(useDirectUrl: boolean): PrismaClient {
+  const directUrl = process.env.DIRECT_URL;
+  if (useDirectUrl && directUrl) {
+    return new PrismaClient({
+      ...logConfig(),
+      datasources: { db: { url: directUrl } },
+    });
+  }
+  return new PrismaClient(logConfig());
+}
+
+function isReachabilityError(error: any): boolean {
+  return (
+    error?.code === 'P1001' ||
+    error?.code === 'P1002' ||
+    error?.code === 'P1008' ||
+    error?.code === 'P1017' ||
+    /can'?t reach database server/i.test(String(error?.message ?? ''))
+  );
+}
+
+async function connectWithRetry(
+  client: PrismaClient,
+  label: string,
+  logger: Logger,
+): Promise<boolean> {
+  for (let attempt = 1; attempt <= CONNECT_ATTEMPTS; attempt++) {
+    try {
+      await client.$connect();
+      logger.log(`PostgreSQL connected via ${label}`);
+      return true;
+    } catch (error: any) {
+      const retryable = isReachabilityError(error);
+      logger.warn(
+        `PostgreSQL ${label} connect attempt ${attempt}/${CONNECT_ATTEMPTS} failed: ${error?.message ?? error}`,
+      );
+      if (!retryable || attempt === CONNECT_ATTEMPTS) {
+        return false;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, CONNECT_BASE_DELAY_MS * attempt),
+      );
+    }
+  }
+  return false;
+}
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger('Prisma');
   private _client: PrismaClient;
+  private connected = false;
+  private recoveryTimer: NodeJS.Timeout | null = null;
 
   constructor() {
-    super({
-      log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-    });
+    super(logConfig());
     this._client = this;
 
     return new Proxy(this, {
@@ -31,31 +92,61 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
-    try {
-      await this._client.$connect();
-      this.logger.log('PostgreSQL connected via pooler');
-    } catch (error: any) {
-      if (error?.code === 'P1001' && process.env.DIRECT_URL) {
-        this.logger.warn('Pooler unreachable — falling back to direct connection...');
-        await this._client.$disconnect().catch(() => {});
-        this._client = new PrismaClient({
-      log: process.env.NODE_ENV === 'development' ? ['error'] : ['error'],
-        });
-        try {
-          await this._client.$connect();
-          this.logger.log('PostgreSQL connected via direct connection');
-        } catch {
-          this.logger.warn('Direct connection also failed — running in degraded mode');
-        }
-      } else {
-        this.logger.warn('PostgreSQL unreachable — running in degraded mode');
+    const pooled = await connectWithRetry(this._client, 'pooler', this.logger);
+    if (pooled) {
+      this.connected = true;
+      return;
+    }
+
+    if (process.env.DIRECT_URL) {
+      this.logger.warn('Pooler unreachable — falling back to direct connection...');
+      await this._client.$disconnect().catch(() => {});
+      this._client = buildClient(true);
+
+      const direct = await connectWithRetry(this._client, 'direct connection', this.logger);
+      if (direct) {
+        this.connected = true;
+        return;
       }
     }
+
+    this.logger.warn('PostgreSQL unreachable — running in degraded mode, will keep retrying in background');
+    this.scheduleRecovery();
   }
 
   async onModuleDestroy() {
+    if (this.recoveryTimer) {
+      clearInterval(this.recoveryTimer);
+      this.recoveryTimer = null;
+    }
     await this._client.$disconnect();
     this.logger.log('PostgreSQL disconnected');
+  }
+
+  isConnected(): boolean {
+    return this.connected;
+  }
+
+  private scheduleRecovery(): void {
+    if (this.recoveryTimer) {
+      return;
+    }
+
+    this.recoveryTimer = setInterval(async () => {
+      try {
+        await this._client.$connect();
+        this.connected = true;
+        if (this.recoveryTimer) {
+          clearInterval(this.recoveryTimer);
+          this.recoveryTimer = null;
+        }
+        this.logger.log('PostgreSQL recovered — connection restored');
+      } catch (error: any) {
+        this.logger.warn(`PostgreSQL still unreachable: ${error?.message ?? error}`);
+      }
+    }, RECOVERY_INTERVAL_MS);
+
+    this.recoveryTimer.unref?.();
   }
 
   async retryOnTransientError<T>(
@@ -74,6 +165,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           error?.code === '08000' || // connection_exception
           error?.code === '08003' || // connection does not exist
           error?.code === '08006' || // connection failure
+          error?.code === 'P1001' || // can't reach database server
+          error?.code === 'P1017' || // server closed the connection
           error?.message?.includes('ECONNRESET') ||
           error?.message?.includes('forcibly closed');
         if (isTransient && attempt < maxRetries - 1) {

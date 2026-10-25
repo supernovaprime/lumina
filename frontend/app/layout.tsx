@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Montserrat, Inter, JetBrains_Mono } from "next/font/google";
+import { Montserrat, Inter, JetBrains_Mono, Caveat } from "next/font/google";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import "./globals.css";
 
@@ -19,6 +19,12 @@ const mono = JetBrains_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-mono",
+});
+
+const script = Caveat({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-script",
 });
 
 const siteUrl =
@@ -57,7 +63,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${display.variable} ${sans.variable} ${mono.variable}`}
+      className={`${display.variable} ${sans.variable} ${mono.variable} ${script.variable}`}
     >
       <body className="font-sans antialiased">
         <ThemeProvider>{children}</ThemeProvider>

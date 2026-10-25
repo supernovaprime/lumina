@@ -46,7 +46,7 @@ export function Testimonials() {
   }, [paused, scrollTo]);
 
   return (
-    <section aria-labelledby="testimonials-heading" className="bg-background">
+    <section aria-labelledby="testimonials-heading" className="relative">
       <div className="mx-auto max-w-7xl px-4 py-16 md:px-8 md:py-24">
         <Reveal className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -101,7 +101,7 @@ export function Testimonials() {
                 key={t.name}
                 aria-roledescription="slide"
                 aria-label={`${t.name}, ${t.role}`}
-                className="w-[85%] shrink-0 snap-start rounded-xl border border-border bg-transparent p-6 sm:w-[calc(50%-10px)] lg:w-[calc(33.333%-14px)]"
+                className="w-[85%] shrink-0 snap-start rounded-xl bg-background/85 p-6 shadow-sm backdrop-blur-sm sm:w-[calc(50%-10px)] lg:w-[calc(33.333%-14px)]"
               >
                 <div className="flex items-center gap-3.5">
                   <span

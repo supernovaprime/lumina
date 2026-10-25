@@ -48,6 +48,7 @@ export class WorkerCronService implements OnModuleInit, OnModuleDestroy {
   private readonly timers: NodeJS.Timeout[] = [];
   private dbAvailable = true;
   private consecutiveFailures = 0;
+  private recoveryProbe: Promise<boolean> | null = null;
   private static readonly MAX_CONSECUTIVE_FAILURES = 3;
 
   constructor(
@@ -89,6 +90,44 @@ export class WorkerCronService implements OnModuleInit, OnModuleDestroy {
     return isPrismaDbError(err);
   }
 
+  private async ensureDbReady(): Promise<boolean> {
+    if (
+      this.dbAvailable ||
+      this.consecutiveFailures < WorkerCronService.MAX_CONSECUTIVE_FAILURES
+    ) {
+      return true;
+    }
+    return this.probeDb();
+  }
+
+  private probeDb(): Promise<boolean> {
+    if (this.recoveryProbe) {
+      return this.recoveryProbe;
+    }
+
+    const probe = (async () => {
+      try {
+        const raw = (this.prisma as any).$queryRawUnsafe;
+        if (typeof raw !== 'function') {
+          return false;
+        }
+        await raw.call(this.prisma, 'SELECT 1');
+        this.markDbAvailable();
+        this.logger.log('Database probe succeeded — cron jobs resumed');
+        return true;
+      } catch (err: any) {
+        this.logger.debug(`Database probe failed: ${err?.message ?? err}`);
+        return false;
+      }
+    })();
+
+    this.recoveryProbe = probe.finally(() => {
+      this.recoveryProbe = null;
+    });
+
+    return this.recoveryProbe;
+  }
+
   private markDbUnavailable(err: any): void {
     if (this.dbAvailable) {
       this.logger.warn(
@@ -110,7 +149,7 @@ export class WorkerCronService implements OnModuleInit, OnModuleDestroy {
 
   private startSlotGeneration() {
     const run = async () => {
-      if (!this.dbAvailable && this.consecutiveFailures >= WorkerCronService.MAX_CONSECUTIVE_FAILURES) {
+      if (!(await this.ensureDbReady())) {
         this.logger.debug('Slot generation skipped — DB unavailable');
         return;
       }
@@ -141,7 +180,7 @@ export class WorkerCronService implements OnModuleInit, OnModuleDestroy {
 
   private startSlotReconciliation() {
     const run = async () => {
-      if (!this.dbAvailable && this.consecutiveFailures >= WorkerCronService.MAX_CONSECUTIVE_FAILURES) {
+      if (!(await this.ensureDbReady())) {
         this.logger.debug('Slot reconciliation skipped — DB unavailable');
         return;
       }
@@ -172,7 +211,7 @@ export class WorkerCronService implements OnModuleInit, OnModuleDestroy {
 
   private startBookingHoldExpiry() {
     const run = async () => {
-      if (!this.dbAvailable && this.consecutiveFailures >= WorkerCronService.MAX_CONSECUTIVE_FAILURES) {
+      if (!(await this.ensureDbReady())) {
         this.logger.debug('Booking hold expiry skipped — DB unavailable');
         return;
       }
@@ -195,7 +234,7 @@ export class WorkerCronService implements OnModuleInit, OnModuleDestroy {
 
   private startReminders() {
     const run = async () => {
-      if (!this.dbAvailable && this.consecutiveFailures >= WorkerCronService.MAX_CONSECUTIVE_FAILURES) {
+      if (!(await this.ensureDbReady())) {
         this.logger.debug('Reminder cron skipped — DB unavailable');
         return;
       }
@@ -218,7 +257,7 @@ export class WorkerCronService implements OnModuleInit, OnModuleDestroy {
 
   private startReviewRequests() {
     const run = async () => {
-      if (!this.dbAvailable && this.consecutiveFailures >= WorkerCronService.MAX_CONSECUTIVE_FAILURES) {
+      if (!(await this.ensureDbReady())) {
         this.logger.debug('Review request cron skipped — DB unavailable');
         return;
       }
@@ -241,7 +280,7 @@ export class WorkerCronService implements OnModuleInit, OnModuleDestroy {
 
   private startNotificationRetry() {
     const run = async () => {
-      if (!this.dbAvailable && this.consecutiveFailures >= WorkerCronService.MAX_CONSECUTIVE_FAILURES) {
+      if (!(await this.ensureDbReady())) {
         this.logger.debug('Notification retry skipped — DB unavailable');
         return;
       }
@@ -295,7 +334,7 @@ export class WorkerCronService implements OnModuleInit, OnModuleDestroy {
 
   private startDataRetention() {
     const run = async () => {
-      if (!this.dbAvailable && this.consecutiveFailures >= WorkerCronService.MAX_CONSECUTIVE_FAILURES) {
+      if (!(await this.ensureDbReady())) {
         this.logger.debug('Data retention cron skipped — DB unavailable');
         return;
       }

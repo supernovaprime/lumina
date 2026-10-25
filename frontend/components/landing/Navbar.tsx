@@ -5,14 +5,6 @@ import Link from "next/link";
 import { Menu, Search, X } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
-const links = [
-  { label: "Home", href: "/" },
-  { label: "Services", href: "/#services" },
-  { label: "Find a Car Wash", href: "/search" },
-  { label: "About", href: "/#how-it-works" },
-  { label: "Contact", href: "/#contact" },
-];
-
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -26,7 +18,7 @@ export function Navbar() {
 
   return (
     <header
-      className={`sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur transition-shadow ${
+      className={`sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl transition-shadow ${
         scrolled ? "shadow-lg shadow-navy-950/10" : ""
       }`}
     >
@@ -47,23 +39,13 @@ export function Navbar() {
           </span>
         </Link>
 
-        <ul className="ml-8 hidden items-center gap-7 lg:flex">
-          {links.map((link, i) => (
-            <li key={link.label}>
-              <Link
-                href={link.href}
-                aria-current={i === 0 ? "page" : undefined}
-                className={`text-sm font-medium transition hover:text-foreground ${
-                  i === 0
-                    ? "text-gold-600 underline decoration-gold-500 decoration-2 underline-offset-8 dark:text-gold-500"
-                    : "text-muted"
-                }`}
-              >
-                {link.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <span className="ml-6 hidden items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs font-medium text-muted lg:inline-flex">
+          <span
+            aria-hidden="true"
+            className="h-1.5 w-1.5 rounded-full bg-teal-500 pulse-dot"
+          />
+          120+ verified partners
+        </span>
 
         <div className="ml-auto flex items-center gap-2.5">
           <Link
@@ -91,7 +73,7 @@ export function Navbar() {
             aria-expanded={open}
             aria-label={open ? "Close menu" : "Open menu"}
             onClick={() => setOpen((v) => !v)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:hidden"
           >
             {open ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -99,21 +81,8 @@ export function Navbar() {
       </nav>
 
       {open && (
-        <div className="border-t border-border bg-background px-4 pb-6 pt-2 lg:hidden">
-          <ul className="flex flex-col gap-1">
-            {links.map((link) => (
-              <li key={link.label}>
-                <Link
-                  href={link.href}
-                  onClick={() => setOpen(false)}
-                  className="block rounded-lg px-3 py-2.5 text-sm font-medium text-foreground hover:bg-surface-2"
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-3 flex gap-2.5">
+        <div className="border-t border-border bg-background px-4 pb-5 pt-4 sm:hidden">
+          <div className="flex gap-2.5">
             <Link
               href="/login"
               onClick={() => setOpen(false)}

@@ -38,7 +38,7 @@ export function HowItWorks() {
     <section
       id="how-it-works"
       aria-labelledby="how-heading"
-      className="bg-background"
+      className="relative"
     >
       <div className="mx-auto grid max-w-7xl gap-12 px-4 py-16 md:px-8 md:py-24 lg:grid-cols-[1.1fr_1fr] lg:items-center">
         <Reveal>
@@ -85,7 +85,7 @@ export function HowItWorks() {
 
         <Reveal
           delayMs={120}
-          className="relative min-h-[280px] overflow-hidden rounded-2xl border border-border bg-background lg:min-h-[420px]"
+          className="relative min-h-[280px] overflow-hidden rounded-2xl bg-background shadow-sm lg:min-h-[420px]"
         >
           <div
             aria-hidden="true"

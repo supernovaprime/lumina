@@ -3,7 +3,7 @@ import { Reveal } from "@/components/landing/Reveal";
 
 export function AppBand() {
   return (
-    <section aria-labelledby="app-heading" className="bg-background">
+    <section aria-labelledby="app-heading" className="relative">
       <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 md:px-8 md:py-20 lg:grid-cols-[1.2fr_1fr]">
         <Reveal>
           <p className="text-xs font-semibold tracking-[0.22em] text-gold-700 dark:text-gold-400">
@@ -48,7 +48,7 @@ export function AppBand() {
         <Reveal delayMs={120} className="hidden justify-center lg:flex">
           <div
             aria-hidden="true"
-            className="w-56 rounded-[2rem] border border-border bg-background p-2.5 shadow-xl shadow-navy-950/10"
+            className="w-56 rounded-[2rem] bg-background p-2.5 shadow-xl shadow-navy-950/10"
           >
             <div className="overflow-hidden rounded-[1.6rem] bg-navy-950 px-4 pb-5 pt-6 text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
