@@ -5,7 +5,7 @@ type SectionHeadingProps = {
   title: React.ReactNode;
   description?: string;
   align?: "left" | "center";
-  tone?: "default" | "light";
+  tone?: "default" | "light" | "atlas";
   className?: string;
   titleId?: string;
 };
@@ -31,14 +31,22 @@ export function SectionHeading({
         className={cn(
           "flex items-center gap-2 text-label font-semibold uppercase tracking-[0.1em]",
           align === "center" && "justify-center",
-          tone === "light" ? "text-marigold-300" : "text-brand",
+          tone === "light"
+            ? "text-marigold-300"
+            : tone === "atlas"
+              ? "text-teal-600 dark:text-teal-300"
+              : "text-brand",
         )}
       >
         <span
           aria-hidden="true"
           className={cn(
             "h-px w-5",
-            tone === "light" ? "bg-marigold-300" : "bg-brand",
+            tone === "light"
+              ? "bg-marigold-300"
+              : tone === "atlas"
+                ? "bg-teal-600 dark:bg-teal-300"
+                : "bg-brand",
           )}
         />
         {eyebrow}

@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/landing/Navbar";
 import { Hero } from "@/components/landing/Hero";
+import { HeroBackdrop } from "@/components/landing/HeroBackdrop";
 import { TrustBand } from "@/components/landing/TrustBand";
 import { ServicesGrid } from "@/components/landing/ServicesGrid";
 import { HowItWorks } from "@/components/landing/HowItWorks";
@@ -13,8 +14,10 @@ export default function LandingPage() {
     <>
       <Navbar />
       <main>
-        <Hero />
-        <TrustBand />
+        <HeroBackdrop>
+          <Hero />
+          <TrustBand />
+        </HeroBackdrop>
         <ServicesGrid />
         <HowItWorks />
         <WhyLumina />

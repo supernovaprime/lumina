@@ -27,27 +27,48 @@ const items: TrustItem[] = [
 
 export function TrustBand() {
   return (
-    <section aria-label="What to expect from Lumina" className="bg-surface">
-      <div className="mx-auto max-w-page px-4 md:px-8">
-        <Stagger className="grid gap-px overflow-hidden rounded-none border-x border-border bg-border sm:grid-cols-3">
-          {items.map((item) => (
-            <StaggerItem key={item.title} className="bg-background">
-              <div className="flex h-full items-start gap-3.5 p-5 md:p-6">
-                <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
-                  <item.icon aria-hidden="true" className="size-5" />
-                </span>
-                <div>
-                  <p className="text-body-sm font-semibold text-foreground">
-                    {item.title}
-                  </p>
-                  <p className="mt-1 text-caption text-muted-foreground">
-                    {item.copy}
-                  </p>
-                </div>
-              </div>
-            </StaggerItem>
-          ))}
-        </Stagger>
+    <section aria-label="What to expect from Lumina" className="relative">
+      <div className="mx-auto max-w-[1440px] px-5 py-8 sm:px-8 lg:px-12 lg:py-10 xl:px-20">
+        <div className="overflow-hidden rounded-2xl border border-white/60 bg-white/55 shadow-[0_20px_56px_-32px_rgba(0,18,25,0.4)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_20px_56px_-32px_rgba(0,0,0,0.8)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/60 px-5 py-4 dark:border-white/10 md:px-6">
+            <p className="flex items-center gap-2 text-label font-semibold uppercase tracking-[0.1em] text-teal-600 dark:text-teal-300">
+              <span
+                aria-hidden="true"
+                className="h-px w-5 bg-teal-600 dark:bg-teal-300"
+              />
+              The Lumina standard
+            </p>
+            <p className="font-mono text-caption text-muted-foreground dark:text-sand-300">
+              Before you book
+            </p>
+          </div>
+
+          <Stagger className="grid divide-y divide-white/60 sm:grid-cols-3 sm:divide-x sm:divide-y-0 dark:divide-white/10">
+            {items.map((item, index) => (
+              <StaggerItem key={item.title}>
+                <article className="group flex h-full flex-col gap-6 px-5 py-6 sm:px-6 sm:py-8">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="font-mono text-caption font-medium text-muted-foreground dark:text-sand-300">
+                      0{index + 1}
+                    </span>
+                    <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/65 text-teal-600 shadow-[0_8px_24px_-16px_rgba(0,18,25,0.4)] backdrop-blur-xl transition-colors duration-300 group-hover:border-teal-600/30 group-hover:bg-white/85 dark:border-white/10 dark:bg-white/[0.06] dark:text-teal-300 dark:group-hover:border-teal-300/30 dark:group-hover:bg-white/10">
+                      <item.icon aria-hidden="true" className="size-5" />
+                    </span>
+                  </div>
+
+                  <div>
+                    <p className="font-display text-title font-bold tracking-tight text-foreground text-pretty dark:text-sand-50">
+                      {item.title}
+                    </p>
+                    <p className="mt-2 max-w-xs text-caption text-muted-foreground dark:text-sand-300">
+                      {item.copy}
+                    </p>
+                  </div>
+                </article>
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </div>
       </div>
     </section>
   );

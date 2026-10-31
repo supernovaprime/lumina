@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 const Sheet = SheetPrimitive.Root;
 const SheetTrigger = SheetPrimitive.Trigger;
 const SheetClose = SheetPrimitive.Close;
+const SheetTitle = SheetPrimitive.Title;
+const SheetDescription = SheetPrimitive.Description;
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
@@ -33,4 +35,11 @@ const SheetContent = React.forwardRef<
 ));
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 
-export { Sheet, SheetTrigger, SheetClose, SheetContent };
+export {
+  Sheet,
+  SheetTrigger,
+  SheetClose,
+  SheetContent,
+  SheetTitle,
+  SheetDescription,
+};

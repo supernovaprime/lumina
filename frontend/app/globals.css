@@ -60,6 +60,43 @@
   --color-clay-900: oklch(35.35% 0.0830 36.43);
   --color-clay-950: oklch(23.23% 0.0558 34.86);
 
+  /* ---------- Hero palette ---------- */
+  --color-navy-50: #f0f7f8;
+  --color-navy-100: #dcebee;
+  --color-navy-200: #b9d7dd;
+  --color-navy-300: #8abcc6;
+  --color-navy-400: #559cae;
+  --color-navy-500: #2b7f93;
+  --color-navy-600: #0e6b7f;
+  --color-navy-700: #086274;
+  --color-navy-800: #005f73;
+  --color-navy-900: #003844;
+  --color-navy-950: #001219;
+
+  --color-teal-50: #effafa;
+  --color-teal-100: #d7f1f2;
+  --color-teal-200: #b0e3e5;
+  --color-teal-300: #79cfd3;
+  --color-teal-400: #3db4ba;
+  --color-teal-500: #1b9aa2;
+  --color-teal-600: #0a9396;
+  --color-teal-700: #0b7b7f;
+  --color-teal-800: #0e6266;
+  --color-teal-900: #0f4f53;
+  --color-teal-950: #043034;
+
+  --color-gold-50: #fdf8ec;
+  --color-gold-100: #faf0d7;
+  --color-gold-200: #e9d8a6;
+  --color-gold-300: #e3c878;
+  --color-gold-400: #e5ad45;
+  --color-gold-500: #ee9b00;
+  --color-gold-600: #c67f00;
+  --color-gold-700: #a16102;
+  --color-gold-800: #854f0a;
+  --color-gold-900: #713f0c;
+  --color-gold-950: #421f02;
+
   /* ---------- Semantic families ---------- */
   --color-green-50: oklch(97.88% 0.0221 160.24);
   --color-green-100: oklch(94.89% 0.0556 156.34);
@@ -384,6 +421,17 @@ body {
   }
 }
 
+@keyframes caret-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0;
+  }
+}
+
 .animate-overlay-in {
   animation: overlay-in 180ms ease-out;
 }
@@ -401,6 +449,9 @@ body {
 }
 .animate-sheet-out {
   animation: sheet-out 180ms ease-in;
+}
+.typewriter-caret {
+  animation: caret-blink 1.05s steps(1, end) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
