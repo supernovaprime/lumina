@@ -14,7 +14,7 @@ export function ServicesGrid() {
     <section
       id="services"
       aria-labelledby="services-heading"
-      className="relative isolate scroll-mt-24 overflow-hidden border-b border-[#d9e2df] bg-[#f7f5ec] py-section dark:border-white/10 dark:bg-[#071a20]"
+      className="relative isolate scroll-mt-24 overflow-hidden border-b border-transparent bg-[#f7f5ec] py-section dark:border-transparent dark:bg-[#071a20]"
     >
       <div
         aria-hidden="true"
@@ -42,7 +42,7 @@ export function ServicesGrid() {
               title={
                 <>
                   Pick the clean your car{" "}
-                  <span className="text-teal-600 dark:text-teal-300">
+                  <span className="text-gold-300">
                     actually needs.
                   </span>
                 </>
@@ -102,7 +102,7 @@ export function ServicesGrid() {
                       </h3>
                       <span
                         aria-hidden="true"
-                        className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/60 text-teal-600 transition-colors duration-300 group-hover:border-teal-600/30 group-hover:bg-teal-600 group-hover:text-white dark:border-white/10 dark:bg-white/[0.06] dark:text-teal-300 dark:group-hover:border-teal-300/30 dark:group-hover:bg-teal-300 dark:group-hover:text-navy-950"
+                        className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/60 text-teal-600 transition-colors duration-300 group-hover:border-teal-600/30 group-hover:bg-teal-600 group-hover:text-white dark:border-white/10 dark:bg-white/[0.06] dark:text-teal-300 dark:group-hover:border-teal-300/30 dark:group-hover:bg-teal-300 dark:group-hover:text-navy-950 group-hover:animate-wobble"
                       >
                         <ArrowUpRight className="size-4" />
                       </span>
@@ -111,7 +111,7 @@ export function ServicesGrid() {
                       {service.copy}
                     </p>
 
-                    <div className="mt-auto flex items-end justify-between gap-3 border-t border-white/60 pt-4 dark:border-white/10">
+                    <div className="mt-auto flex items-end justify-between gap-3 border-t border-transparent pt-4">
                       <span className="font-mono text-label font-medium uppercase tracking-[0.12em] text-muted-foreground dark:text-sand-300">
                         From
                       </span>

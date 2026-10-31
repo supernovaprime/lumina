@@ -30,7 +30,7 @@ export function TrustBand() {
     <section aria-label="What to expect from Lumina" className="relative">
       <div className="mx-auto max-w-[1440px] px-5 py-8 sm:px-8 lg:px-12 lg:py-10 xl:px-20">
         <div className="overflow-hidden rounded-2xl border border-white/60 bg-white/55 shadow-[0_20px_56px_-32px_rgba(0,18,25,0.4)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_20px_56px_-32px_rgba(0,0,0,0.8)]">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/60 px-5 py-4 dark:border-white/10 md:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-transparent px-5 py-4 md:px-6">
             <p className="flex items-center gap-2 text-label font-semibold uppercase tracking-[0.1em] text-teal-600 dark:text-teal-300">
               <span
                 aria-hidden="true"
@@ -43,7 +43,7 @@ export function TrustBand() {
             </p>
           </div>
 
-          <Stagger className="grid divide-y divide-white/60 sm:grid-cols-3 sm:divide-x sm:divide-y-0 dark:divide-white/10">
+          <Stagger className="grid divide-y divide-transparent sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             {items.map((item, index) => (
               <StaggerItem key={item.title}>
                 <article className="group flex h-full flex-col gap-6 px-5 py-6 sm:px-6 sm:py-8">

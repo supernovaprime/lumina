@@ -432,11 +432,27 @@ body {
   }
 }
 
+@keyframes wobble {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-5deg);
+  }
+  75% {
+    transform: rotate(5deg);
+  }
+}
+
 .animate-overlay-in {
   animation: overlay-in 180ms ease-out;
 }
 .animate-overlay-out {
   animation: overlay-out 140ms ease-in;
+}
+.animate-wobble {
+  animation: wobble 0.5s ease-in-out;
 }
 .animate-dialog-in {
   animation: dialog-in 200ms ease-out;

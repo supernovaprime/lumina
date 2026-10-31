@@ -52,9 +52,9 @@ export function WhyLumina() {
     <section
       id="why-lumina"
       aria-labelledby="why-heading"
-      className="scroll-mt-24 border-b border-border bg-background py-section"
+      className="relative isolate scroll-mt-24 overflow-hidden border-b border-transparent py-section"
     >
-      <div className="mx-auto max-w-page px-4 md:px-8">
+      <div className="relative mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12 xl:px-20">
         <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-start lg:gap-16">
           <FadeIn>
             <SectionHeading
@@ -63,13 +63,13 @@ export function WhyLumina() {
               title={
                 <>
                   Less guesswork.{" "}
-                  <span className="text-brand">More confidence.</span>
+                  <span className="text-gold-300">More confidence.</span>
                 </>
               }
               description="A marketplace should make the choice easier, not just longer. Lumina is built around the details that matter before you hand over your keys."
             />
 
-            <div className="mt-8 rounded-xl border border-border bg-surface p-5 md:p-6">
+            <div className="mt-8 overflow-hidden rounded-2xl border border-white/60 bg-white/55 shadow-[0_20px_56px_-32px_rgba(0,18,25,0.4)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.05] dark:shadow-[0_20px_56px_-32px_rgba(0,0,0,0.8)] p-5 md:p-6">
               <div className="flex items-start gap-3">
                 <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
                   <ShieldCheck aria-hidden="true" className="size-5" />
@@ -84,7 +84,7 @@ export function WhyLumina() {
                 </div>
               </div>
 
-              <ul className="mt-5 space-y-3 border-t border-border pt-5">
+              <ul className="mt-5 space-y-3 border-t border-transparent pt-5">
                 {checks.map((check) => (
                   <li
                     key={check}
@@ -101,19 +101,19 @@ export function WhyLumina() {
           </FadeIn>
 
           <Stagger className="grid gap-4 sm:grid-cols-2">
-            {reasons.map((reason) => (
+            {reasons.map((reason, index) => (
               <StaggerItem key={reason.title}>
-                <Card className="h-full p-5 md:p-6">
-                  <span className="inline-flex size-10 items-center justify-center rounded-md bg-surface-sunken text-brand">
+                <div className={`group h-full overflow-hidden rounded-2xl border border-white/60 bg-white/55 shadow-[0_20px_56px_-32px_rgba(0,18,25,0.4)] backdrop-blur-2xl transition-[background-color,border-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:border-teal-600/30 hover:bg-white/75 hover:shadow-[0_24px_64px_-34px_rgba(0,18,25,0.5)] motion-reduce:transform-none dark:border-white/10 dark:bg-white/[0.05] dark:shadow-[0_20px_56px_-32px_rgba(0,0,0,0.8)] dark:hover:border-teal-300/30 dark:hover:bg-white/[0.08] dark:hover:shadow-[0_24px_64px_-34px_rgba(0,0,0,0.9)] p-5 md:p-6 ${index === 0 ? 'sm:col-span-2' : ''}`}>
+                  <span className="inline-flex size-10 items-center justify-center rounded-md bg-surface-sunken text-brand transition-transform duration-300 group-hover:animate-wobble">
                     <reason.icon aria-hidden="true" className="size-5" />
                   </span>
-                  <h3 className="mt-5 font-display text-title font-bold tracking-tight text-foreground">
+                  <h3 className="mt-5 font-display text-title font-bold tracking-tight text-foreground transition-colors duration-300 group-hover:text-teal-600 dark:group-hover:text-teal-300">
                     {reason.title}
                   </h3>
                   <p className="mt-1.5 text-caption text-muted-foreground">
                     {reason.copy}
                   </p>
-                </Card>
+                </div>
               </StaggerItem>
             ))}
           </Stagger>
