@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { BrandMark } from "@/components/brand/BrandMark";
+import { Button } from "@/components/ui/button";
 
 type ComingSoonProps = {
   title: string;
@@ -19,20 +21,19 @@ export function ComingSoon({
   backLabel = "Back to home",
 }: ComingSoonProps) {
   return (
-    <main className="flex min-h-[70vh] items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/logo.svg" alt="" className="mx-auto h-20 w-20" />
-        <h1 className="mt-6 font-display text-3xl font-extrabold tracking-tight text-foreground">
+    <main className="flex min-h-[70vh] items-center justify-center bg-background px-4 py-16">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 text-center shadow-1 md:p-8">
+        <BrandMark className="justify-center" />
+        <h1 className="mt-8 font-display text-h2 font-bold tracking-tight text-foreground">
           {title}
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-muted">{copy}</p>
-        <Link
-          href={backHref}
-          className="mt-7 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-fg transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          <ArrowLeft size={16} /> {backLabel}
-        </Link>
+        <p className="mt-3 text-body-sm text-muted-foreground">{copy}</p>
+        <Button asChild variant="outline" className="mt-7">
+          <Link href={backHref}>
+            <ArrowLeft aria-hidden="true" className="size-4" />
+            {backLabel}
+          </Link>
+        </Button>
       </div>
     </main>
   );

@@ -27,7 +27,7 @@ export const testimonials: Testimonial[] = [
     name: "Efua Boateng",
     role: "Customer",
     quote:
-      "I love the app! Booking is quick and I can find a car wash near me in seconds.",
+      "Booking was quick and I found a car wash near me in seconds.",
     initials: "EB",
     avatar: "/assets/avatar-efua-boateng.jpg",
   },

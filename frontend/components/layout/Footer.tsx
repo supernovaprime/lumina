@@ -1,118 +1,107 @@
 import Link from "next/link";
-import { Facebook, Instagram, Twitter, Youtube } from "lucide-react";
+import { MapPin } from "lucide-react";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { NewsletterForm } from "@/components/layout/NewsletterForm";
 
-const quickLinks = [
+const exploreLinks = [
   { label: "Home", href: "/" },
   { label: "Services", href: "/#services" },
-  { label: "Find a Car Wash", href: "/search" },
-  { label: "About Us", href: "/#how-it-works" },
-  { label: "Contact", href: "/#contact" },
+  { label: "How it works", href: "/#how-it-works" },
+  { label: "Why Lumina", href: "/#why-lumina" },
+  { label: "Find a car wash", href: "/search" },
 ];
 
 const supportLinks = [
-  { label: "Help & Support", href: "/support" },
+  { label: "Help & support", href: "/support" },
   { label: "FAQs", href: "/support#faqs" },
-  { label: "Terms & Conditions", href: "/legal#terms" },
-  { label: "Privacy Policy", href: "/legal#privacy" },
-];
-
-const socials = [
-  { label: "Facebook", Icon: Facebook },
-  { label: "Instagram", Icon: Instagram },
-  { label: "X", Icon: Twitter },
-  { label: "YouTube", Icon: Youtube },
+  { label: "Terms & conditions", href: "/legal#terms" },
+  { label: "Privacy policy", href: "/legal#privacy" },
 ];
 
 export function Footer() {
   return (
-    <footer id="contact" className="border-t border-border bg-background">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 md:grid-cols-2 md:px-8 lg:grid-cols-4">
-        <div>
-          <Link href="/" className="flex items-center gap-2.5" aria-label="Lumina home">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icon.svg" alt="" className="h-9 w-9" />
-            <span className="leading-none">
-            <span className="block font-display text-xl font-extrabold tracking-tight text-foreground">
-              Lumi<span className="text-gold-600 dark:text-gold-500">na</span>
-            </span>
-            <span className="block text-[10px] font-medium text-muted">
-              Cleaner Cars. Brighter Days.
-            </span>
-            </span>
-          </Link>
-          <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">
-            Book trusted car washes near you in minutes. Compare services,
-            pick a slot, and drive away clean.
-          </p>
-        </div>
+    <footer id="contact" className="scroll-mt-24 border-t border-border bg-surface">
+      <div className="mx-auto max-w-page px-4 pb-8 pt-12 md:px-8 md:pt-16">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_0.8fr_0.8fr_1.1fr]">
+          <div>
+            <Link
+              href="/"
+              aria-label="Lumina home"
+              className="inline-block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <BrandMark />
+            </Link>
+            <p className="mt-5 max-w-xs text-caption text-muted-foreground">
+              Compare trusted car wash partners in Accra, see prices up front,
+              pick a slot and drive away clean.
+            </p>
+            <p className="mt-5 flex items-center gap-2 text-caption text-muted-foreground">
+              <MapPin aria-hidden="true" className="size-4 text-brand" />
+              Accra, Ghana
+            </p>
+          </div>
 
-        <nav aria-label="Quick links">
-          <h3 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
-            Quick Links
-          </h3>
-          <ul className="mt-4 space-y-2.5">
-            {quickLinks.map((link) => (
-              <li key={link.label}>
-                <Link
-                  href={link.href}
-                  className="text-sm text-white/60 transition hover:text-tertiary"
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+          <nav aria-label="Explore">
+            <h3 className="text-label font-semibold uppercase tracking-[0.1em] text-foreground">
+              Explore
+            </h3>
+            <ul className="mt-5 space-y-3">
+              {exploreLinks.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="text-caption text-muted-foreground transition-colors hover:text-brand"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
 
-        <nav aria-label="Support">
-          <h3 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
-            Support
-          </h3>
-          <ul className="mt-4 space-y-2.5">
-            {supportLinks.map((link) => (
-              <li key={link.label}>
-                <Link
-                  href={link.href}
-                  className="text-sm text-white/60 transition hover:text-tertiary"
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+          <nav aria-label="Support">
+            <h3 className="text-label font-semibold uppercase tracking-[0.1em] text-foreground">
+              Support
+            </h3>
+            <ul className="mt-5 space-y-3">
+              {supportLinks.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="text-caption text-muted-foreground transition-colors hover:text-brand"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
 
-        <div>
-          <h3 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
-            Stay Connected
-          </h3>
-          <div className="mt-4 flex gap-2.5">
-            {socials.map(({ label, Icon }) => (
-              <span
-                key={label}
-                title={`${label} — coming soon`}
-                aria-label={`${label} (coming soon)`}
-                role="img"
-                className="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-full border border-border text-muted"
+          <div>
+            <h3 className="text-label font-semibold uppercase tracking-[0.1em] text-foreground">
+              Stay in the loop
+            </h3>
+            <div className="mt-5">
+              <NewsletterForm />
+            </div>
+            <p className="mt-5 border-t border-border pt-4 text-caption text-muted-foreground">
+              Need a hand with a booking?{" "}
+              <Link
+                href="/support"
+                className="font-medium text-brand underline decoration-brand/30 underline-offset-4 hover:decoration-brand"
               >
-                <Icon size={16} />
-              </span>
-            ))}
-          </div>
-          <div className="mt-5">
-            <NewsletterForm />
+                Visit support
+              </Link>
+            </p>
           </div>
         </div>
-      </div>
 
-      <div className="border-t border-border">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-5 md:px-8">
-          <p className="text-xs text-muted">
-            &copy; 2025 Lumina. All rights reserved.
+        <div className="mt-12 flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-caption text-muted-foreground">
+            &copy; {new Date().getFullYear()} Lumina. All rights reserved.
           </p>
-          <p className="font-display text-xs font-semibold italic text-gold-700 dark:text-gold-500/90">
-            Clean Rides, Better Days.
+          <p className="font-display text-title font-semibold text-brand">
+            Cleaner cars. Brighter days.
           </p>
         </div>
       </div>

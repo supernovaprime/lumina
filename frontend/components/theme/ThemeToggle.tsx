@@ -18,9 +18,13 @@ export function ThemeToggle() {
       aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
       aria-pressed={isDark}
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted transition hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className="inline-flex size-11 items-center justify-center rounded-md border border-border bg-surface-raised text-muted-foreground transition-colors hover:bg-surface-sunken hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      {mounted && isDark ? <Sun size={17} /> : <Moon size={17} />}
+      {mounted && isDark ? (
+        <Sun aria-hidden="true" className="size-4" />
+      ) : (
+        <Moon aria-hidden="true" className="size-4" />
+      )}
     </button>
   );
 }

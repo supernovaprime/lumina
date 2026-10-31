@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export function NewsletterForm() {
   const [email, setEmail] = useState("");
@@ -16,24 +18,30 @@ export function NewsletterForm() {
     }
     setError("");
     setDone(true);
-    // TODO(Phase 5): replace stub with backend newsletter endpoint + toast.success.
   };
 
   if (done) {
     return (
-      <p role="status" className="text-sm font-medium text-teal-300">
-        You&apos;re subscribed — welcome aboard!
+      <p
+        role="status"
+        className="flex items-start gap-2 text-caption font-medium text-success"
+      >
+        <CheckCircle2 aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+        Thanks. Newsletter delivery is not connected yet.
       </p>
     );
   }
 
   return (
     <form onSubmit={submit} noValidate>
-      <label htmlFor="newsletter-email" className="text-xs text-muted">
-        Subscribe to our newsletter
+      <label
+        htmlFor="newsletter-email"
+        className="text-caption text-muted-foreground"
+      >
+        Product updates and wash tips, occasionally.
       </label>
-      <div className="mt-2 flex gap-2">
-        <input
+      <div className="mt-2.5 flex gap-2">
+        <Input
           id="newsletter-email"
           type="email"
           value={email}
@@ -41,18 +49,22 @@ export function NewsletterForm() {
           placeholder="Enter your email"
           aria-invalid={Boolean(error)}
           aria-describedby={error ? "newsletter-error" : undefined}
-          className="min-w-0 flex-1 rounded-full border border-border bg-transparent px-4 py-2 text-sm text-foreground placeholder:text-muted focus:border-tertiary focus:outline-none"
         />
-        <button
+        <Button
           type="submit"
+          size="icon"
+          className="size-12 shrink-0"
           aria-label="Subscribe"
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-fg transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-          <ArrowRight size={16} />
-        </button>
+          <ArrowRight aria-hidden="true" />
+        </Button>
       </div>
       {error && (
-        <p id="newsletter-error" role="alert" className="mt-1.5 text-xs text-red-400">
+        <p
+          id="newsletter-error"
+          role="alert"
+          className="mt-1.5 text-caption text-destructive"
+        >
           {error}
         </p>
       )}
