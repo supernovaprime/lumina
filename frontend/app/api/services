@@ -1,0 +1,72 @@
+// This is a Next.js API route that serves as the backend for the frontend
+// It's located at app/api/services/route.ts
+
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  // Mock data for demonstration purposes
+  const services = [
+    {
+      id: '1',
+      slug: 'basic-wash',
+      title: 'Basic Wash',
+      copy: 'A quick and effective clean for your everyday ride.',
+      fromPrice: 50,
+      icon: 'car',
+      image: '/assets/service-basic-wash.jpg',
+      alt: 'Basic wash service'
+    },
+    {
+      id: '2',
+      slug: 'premium-wash',
+      title: 'Premium Wash',
+      copy: 'Deep clean with extra care for a flawless finish.',
+      fromPrice: 80,
+      icon: 'sparkles',
+      image: '/assets/service-premium-wash.jpg',
+      popular: true,
+      backendFilter: 'FULL_WASH'
+    },
+    {
+      id: '3',
+      slug: 'full-detail',
+      title: 'Full Detail',
+      copy: 'Inside and out. Because your car deserves more.',
+      fromPrice: 120,
+      icon: 'spray',
+      image: '/assets/service-full-detail.jpg',
+      backendFilter: 'DETAILING'
+    },
+    {
+      id: '4',
+      slug: 'wax-polish',
+      title: 'Wax & Polish',
+      copy: 'Long-lasting shine and environmental protection.',
+      fromPrice: 100,
+      icon: 'shield',
+      image: '/assets/service-wax-polish.jpg',
+      backendFilter: 'ADD_ONS'
+    },
+    {
+      id: '5',
+      slug: 'interior-cleaning',
+      title: 'Interior Cleaning',
+      copy: 'Fresh, vacuumed, sanitized and comfortable cabin.',
+      fromPrice: 70,
+      icon: 'seat',
+      image: '/assets/service-interior-cleaning.jpg',
+      backendFilter: 'INTERIOR'
+    }
+  ];
+
+  return NextResponse.json({
+    success: true,
+    data: services,
+    meta: {
+      page: 1,
+      limit: 10,
+      total: 5,
+      totalPages: 1
+    }
+  });
+}
