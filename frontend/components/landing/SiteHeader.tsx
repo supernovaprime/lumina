@@ -1,101 +1,67 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { Menu, Search, X } from "lucide-react";
 
 import { BrandMark } from "@/components/brand/BrandMark";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
-
-const navLinks = [
-  { label: "Home", href: "/", current: true },
-  { label: "Services", href: "/services" },
-  { label: "How it works", href: "#how-it-works" },
-  { label: "Why Lumina", href: "#why-lumina" },
-  { label: "Support", href: "/support" },
-];
+import { buttonClass } from "@/components/ui/button";
 
 export function SiteHeader() {
-  const [open, setOpen] = useState(false);
+  const barRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let frame = 0;
+
+    const update = () => {
+      frame = 0;
+      const el = barRef.current;
+      if (!el) return;
+      el.style.setProperty("--header-angle", `${window.scrollY * 0.35}deg`);
+    };
+
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, []);
 
   return (
-    <header className="relative z-30">
-      <div className="relative flex items-center justify-between gap-3 px-5 py-5 sm:px-8 lg:px-12 lg:py-6">
-        <BrandMark />
-
-        <nav
-          aria-label="Primary"
-          className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-8 lg:flex"
+    <header className="sticky top-2 z-50 mb-2 sm:top-3 sm:mb-3 lg:top-4 lg:mb-4">
+      <div className="mx-auto w-full max-w-[var(--container-page)]">
+        <div
+          ref={barRef}
+          className="header-gradient-ring relative flex items-center justify-between gap-3 overflow-hidden rounded-2xl bg-white/50 px-4 py-3 shadow-[0_24px_70px_-42px_rgba(4,28,40,0.55),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-3xl backdrop-saturate-150 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/80 before:to-transparent dark:bg-sea-950/50 dark:shadow-[0_30px_80px_-48px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.1)] dark:before:via-white/20 sm:rounded-[1.25rem] sm:px-5 sm:py-3.5"
         >
-          {navLinks.map((link) => (
-            <Link
-              key={link.label}
-              href={link.href}
-              aria-current={link.current ? "page" : undefined}
-              className="group relative text-caption font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:text-foreground"
-            >
-              {link.label}
-              <span className="absolute -bottom-2 left-1/2 size-1 -translate-x-1/2 scale-0 rounded-full bg-orchid-400 transition-transform group-hover:scale-100 group-aria-[current=page]:scale-100" />
-            </Link>
-          ))}
-        </nav>
+          <div className="relative z-10">
+            <BrandMark />
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/login"
-            className="hidden rounded-full px-3 py-2 text-caption font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/search"
-            aria-label="Search car washes"
-            className="inline-flex size-10 items-center justify-center rounded-full border border-border bg-surface/40 text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
-          >
-            <Search aria-hidden="true" className="size-4" />
-          </Link>
-          <ThemeToggle />
-          <button
-            type="button"
-            aria-label={open ? "Close menu" : "Open menu"}
-            aria-expanded={open}
-            aria-controls="mobile-nav"
-            onClick={() => setOpen((value) => !value)}
-            className="inline-flex size-10 items-center justify-center rounded-full border border-border bg-surface/40 text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 lg:hidden dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
-          >
-            {open ? (
-              <X aria-hidden="true" className="size-4" />
-            ) : (
-              <Menu aria-hidden="true" className="size-4" />
-            )}
-          </button>
-        </div>
-      </div>
-
-      {open ? (
-        <div id="mobile-nav" className="border-t border-border/60 px-5 pb-5 lg:hidden">
-          <nav aria-label="Mobile" className="flex flex-col py-2">
-            {navLinks.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                onClick={() => setOpen(false)}
-                aria-current={link.current ? "page" : undefined}
-                className="rounded-lg px-3 py-3 text-body-sm font-medium text-muted-foreground transition-colors hover:bg-surface hover:text-foreground aria-[current=page]:text-foreground"
-              >
-                {link.label}
-              </Link>
-            ))}
+          <div className="relative z-10 flex items-center gap-1 sm:gap-2">
             <Link
               href="/login"
-              onClick={() => setOpen(false)}
-              className="mt-1 rounded-lg px-3 py-3 text-body-sm font-medium text-orchid-600 transition-colors hover:bg-surface dark:text-orchid-300"
+              className={buttonClass({
+                variant: "gradient",
+                size: "sm",
+                className: "h-10",
+              })}
             >
               Sign in
             </Link>
-          </nav>
+            <ThemeToggle />
+          </div>
         </div>
-      ) : null}
+      </div>
     </header>
   );
 }

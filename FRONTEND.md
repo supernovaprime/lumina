@@ -283,6 +283,27 @@ Rules:
 - **Permanence:** is "Violet Wash" the new permanent brand direction, or a campaign skin alongside
   "Deep Water & Gold"? This plan assumes permanent replacement.
 
+### 0.11 Glassmorphic bento direction (latest, supersedes flat-card rules)
+
+- **Header:** detached from the stage and sticky at the top of the viewport. It is its own
+  glassmorphic bar with a 1 px light border, inner top highlight, `backdrop-blur-2xl`, and
+  `backdrop-saturate-150`. Keep it opaque enough (light ~78%, dark ~84%) that page content passing
+  underneath does not compete with the wordmark and controls.
+- **Cards:** all new cards are glassmorphic. Use `GlassCard` / `glassCardClass` from
+  `components/ui/glass-card.tsx`: translucent white-to-transparent gradient, 1 px white border,
+  inner highlight, `backdrop-blur-xl`, and flat plum shadows. This overrides the earlier "no blur on
+  marketing surfaces" rule.
+- **Bento grids:** card layouts use asymmetric 12-column bento grids on desktop, with spans such as
+  3/6, 7/5, and full-width summary tiles. Collapse to 2 columns at `sm` and 1 column on mobile.
+  Avoid equal three-column card rows unless the content genuinely calls for it.
+- **Anchor offset:** sticky header means section anchors need `scroll-mt-24` / `sm:scroll-mt-28`.
+- **CTA:** keep the campaign gradient, but frame it in a glassmorphic outer panel.
+- **Footer:** remains a flat plum band (not a card) in both themes.
+- **Hero visual:** use the supplied `Car wash-amico.svg` (served from `frontend/public/assets/`) as the
+  hero illustration. It has a scroll-linked parallax (`CarWashAmico`): a small translate + rotate as
+  it passes through the viewport, disabled under `prefers-reduced-motion`. The custom
+  `CarWashTunnel` remains available for the auth artwork.
+
 ---
 
 ## 1. Design System — "Deep Water & Gold" (LEGACY — superseded by §0)

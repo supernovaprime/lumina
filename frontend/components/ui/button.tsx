@@ -8,9 +8,13 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-primary text-primary-foreground shadow-[0_16px_42px_-18px_rgba(192,16,160,0.85)] hover:-translate-y-0.5 hover:bg-primary-hover",
+          "bg-primary text-primary-foreground shadow-[0_16px_42px_-18px_rgba(14,180,243,0.85)] hover:-translate-y-0.5 hover:bg-primary-hover",
+        gradient:
+          "gradient-button rounded-[1.05rem] bg-primary text-primary-foreground shadow-[0_16px_42px_-18px_rgba(14,180,243,0.85)] hover:-translate-y-0.5",
         outline:
-          "border border-orchid-500/45 bg-transparent text-foreground hover:-translate-y-0.5 hover:border-orchid-400 hover:bg-orchid-500/10",
+          "border border-sea-500/45 bg-transparent text-foreground hover:-translate-y-0.5 hover:border-sea-400 hover:bg-sea-500/10",
+        gradientOutline:
+          "gradient-outline rounded-[1.05rem] border border-transparent bg-transparent text-foreground hover:-translate-y-0.5 hover:border-transparent hover:bg-transparent",
         ghost: "text-muted-foreground hover:bg-surface hover:text-foreground",
       },
       size: {

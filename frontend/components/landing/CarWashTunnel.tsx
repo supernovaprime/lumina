@@ -15,7 +15,7 @@ function Portal({
   width,
   thickness,
   opacity = 1,
-  accent = "#D61FA8",
+  accent = "#38bdf8",
 }: PortalProps) {
   const leftX = x - width / 2 - thickness;
   const rightX = x + width / 2;
@@ -58,7 +58,7 @@ function Portal({
         width={innerThickness}
         height={Math.max(0, pillarHeight - innerOffset * 2)}
         rx={innerThickness / 2}
-        fill="#8A5FB8"
+        fill="#43a6c6"
         opacity=".22"
       />
       <rect
@@ -67,7 +67,7 @@ function Portal({
         width={innerThickness}
         height={Math.max(0, pillarHeight - innerOffset * 2)}
         rx={innerThickness / 2}
-        fill="#8A5FB8"
+        fill="#43a6c6"
         opacity=".22"
       />
       <rect
@@ -76,7 +76,7 @@ function Portal({
         width={beamW - innerOffset * 2}
         height={innerThickness}
         rx={innerThickness / 2}
-        fill="#8A5FB8"
+        fill="#43a6c6"
         opacity=".22"
       />
 
@@ -127,52 +127,52 @@ export function CarWashTunnel({ className }: { className?: string }) {
 
       <defs>
         <linearGradient id="cwt-floor" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#260B5C" />
-          <stop offset="100%" stopColor="#12003B" />
+          <stop offset="0%" stopColor="#082f49" />
+          <stop offset="100%" stopColor="#02141d" />
         </linearGradient>
 
         <linearGradient id="cwt-belt" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#1B0348" />
-          <stop offset="100%" stopColor="#0D002E" />
+          <stop offset="0%" stopColor="#041c28" />
+          <stop offset="100%" stopColor="#02141d" />
         </linearGradient>
 
         <linearGradient id="cwt-frame" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#FFFFFF" />
-          <stop offset="45%" stopColor="#E8DDF8" />
-          <stop offset="100%" stopColor="#A078C8" />
+          <stop offset="45%" stopColor="#d6eef6" />
+          <stop offset="100%" stopColor="#7cc5dc" />
         </linearGradient>
 
         <linearGradient id="cwt-car" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#FF7ADD" />
-          <stop offset="42%" stopColor="#D61FA8" />
-          <stop offset="100%" stopColor="#8A066F" />
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="42%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#145974" />
         </linearGradient>
 
         <linearGradient id="cwt-window" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#B9D8FF" />
-          <stop offset="100%" stopColor="#3A2BB0" />
+          <stop offset="0%" stopColor="#b8e7ff" />
+          <stop offset="100%" stopColor="#0ea5e9" />
         </linearGradient>
 
         <linearGradient id="cwt-brush" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#2A166F" />
-          <stop offset="34%" stopColor="#8FA6FF" />
-          <stop offset="62%" stopColor="#5078E0" />
-          <stop offset="100%" stopColor="#24104A" />
+          <stop offset="0%" stopColor="#0d3a4d" />
+          <stop offset="34%" stopColor="#7ad4ff" />
+          <stop offset="62%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#0b3142" />
         </linearGradient>
 
         <radialGradient id="cwt-glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#C010A0" stopOpacity=".5" />
-          <stop offset="100%" stopColor="#C010A0" stopOpacity="0" />
+          <stop offset="0%" stopColor="#166e8f" stopOpacity=".5" />
+          <stop offset="100%" stopColor="#166e8f" stopOpacity="0" />
         </radialGradient>
 
         <radialGradient id="cwt-blue-glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#5078E0" stopOpacity=".4" />
-          <stop offset="100%" stopColor="#5078E0" stopOpacity="0" />
+          <stop offset="0%" stopColor="#38bdf8" stopOpacity=".4" />
+          <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
         </radialGradient>
 
-        <radialGradient id="cwt-aqua-glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#80F0F0" stopOpacity=".4" />
-          <stop offset="100%" stopColor="#80F0F0" stopOpacity="0" />
+        <radialGradient id="cwt-sky-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#7AD4FF" stopOpacity=".4" />
+          <stop offset="100%" stopColor="#7AD4FF" stopOpacity="0" />
         </radialGradient>
 
         <filter id="cwt-soft" x="-60%" y="-60%" width="220%" height="220%">
@@ -180,7 +180,7 @@ export function CarWashTunnel({ className }: { className?: string }) {
         </filter>
 
         <g id="cwt-car-symbol">
-          <ellipse cx="124" cy="82" rx="136" ry="14" fill="#08001F" opacity=".42" />
+          <ellipse cx="124" cy="82" rx="136" ry="14" fill="#02141d" opacity=".42" />
 
           <path
             d="M 6 52 C 6 40 14 32 26 30 L 64 26 L 90 6 C 98 -2 110 -6 124 -6 L 158 -6 C 174 -6 188 2 198 16 L 216 32 L 230 36 C 242 38 248 46 246 56 L 242 66 C 241 73 236 77 229 77 L 18 77 C 9 77 4 71 4 63 Z"
@@ -188,12 +188,12 @@ export function CarWashTunnel({ className }: { className?: string }) {
           />
           <path
             d="M 12 65 L 238 65 L 234 74 L 18 74 Z"
-            fill="#6A0060"
+            fill="#113f52"
             opacity=".34"
           />
           <path
             d="M 92 22 L 122 22 L 122 60 L 88 60 Z"
-            fill="#7A066D"
+            fill="#145974"
             opacity=".12"
           />
 
@@ -204,35 +204,35 @@ export function CarWashTunnel({ className }: { className?: string }) {
           <path d="M 100 8 L 114 5 L 116 9" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" opacity=".55" />
           <path d="M 134 6 L 152 6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" opacity=".45" />
 
-          <path d="M 128 21 L 128 63" stroke="#7A066D" strokeWidth="1.5" opacity=".38" />
-          <rect x="134" y="32" width="12" height="4" rx="2" fill="#FFD6F2" opacity=".7" />
+          <path d="M 128 21 L 128 63" stroke="#145974" strokeWidth="1.5" opacity=".38" />
+          <rect x="134" y="32" width="12" height="4" rx="2" fill="#b8e7ff" opacity=".7" />
 
-          <ellipse cx="237" cy="44" rx="12" ry="8" fill="#80F0F0" opacity=".16" />
-          <ellipse cx="237" cy="44" rx="5" ry="3.5" fill="#80F0F0" />
-          <rect x="5" y="38" width="8" height="12" rx="2" fill="#D61FA8" />
-          <ellipse cx="9" cy="44" rx="10" ry="7" fill="#D61FA8" opacity=".18" />
+          <ellipse cx="237" cy="44" rx="12" ry="8" fill="#7AD4FF" opacity=".16" />
+          <ellipse cx="237" cy="44" rx="5" ry="3.5" fill="#7AD4FF" />
+          <rect x="5" y="38" width="8" height="12" rx="2" fill="#38bdf8" />
+          <ellipse cx="9" cy="44" rx="10" ry="7" fill="#38bdf8" opacity=".18" />
 
-          <circle cx="58" cy="72" r="25" fill="#08001F" />
-          <circle cx="196" cy="72" r="25" fill="#08001F" />
+          <circle cx="58" cy="72" r="25" fill="#02141d" />
+          <circle cx="196" cy="72" r="25" fill="#02141d" />
 
           <g>
-            <circle cx="58" cy="72" r="20" fill="#16002F" stroke="#4E117F" strokeWidth="2" />
-            <circle cx="58" cy="72" r="12.5" fill="#24104A" stroke="#A078C8" strokeWidth="2.4" />
-            <circle cx="58" cy="72" r="4.5" fill="#D8C0E8" />
+            <circle cx="58" cy="72" r="20" fill="#041c28" stroke="#145974" strokeWidth="2" />
+            <circle cx="58" cy="72" r="12.5" fill="#0b3142" stroke="#7cc5dc" strokeWidth="2.4" />
+            <circle cx="58" cy="72" r="4.5" fill="#b0ddea" />
             <path
               d="M58 63 L58 81 M49 72 L67 72 M52 66 L64 78 M64 66 L52 78"
-              stroke="#8A5FB8"
+              stroke="#43a6c6"
               strokeWidth="1.3"
               opacity=".85"
             />
           </g>
           <g>
-            <circle cx="196" cy="72" r="20" fill="#16002F" stroke="#4E117F" strokeWidth="2" />
-            <circle cx="196" cy="72" r="12.5" fill="#24104A" stroke="#A078C8" strokeWidth="2.4" />
-            <circle cx="196" cy="72" r="4.5" fill="#D8C0E8" />
+            <circle cx="196" cy="72" r="20" fill="#041c28" stroke="#145974" strokeWidth="2" />
+            <circle cx="196" cy="72" r="12.5" fill="#0b3142" stroke="#7cc5dc" strokeWidth="2.4" />
+            <circle cx="196" cy="72" r="4.5" fill="#b0ddea" />
             <path
               d="M196 63 L196 81 M187 72 L205 72 M190 66 L202 78 M202 66 L190 78"
-              stroke="#8A5FB8"
+              stroke="#43a6c6"
               strokeWidth="1.3"
               opacity=".85"
             />
@@ -241,7 +241,7 @@ export function CarWashTunnel({ className }: { className?: string }) {
           <path
             d="M 90 6 C 98 -2 110 -6 124 -6 L 158 -6 C 174 -6 188 2 198 16"
             fill="none"
-            stroke="#FFB6EA"
+            stroke="#7ad4ff"
             strokeWidth="3.2"
             strokeLinecap="round"
             opacity=".65"
@@ -262,7 +262,7 @@ export function CarWashTunnel({ className }: { className?: string }) {
         cy="150"
         r="148"
         fill="none"
-        stroke="#6C4AB7"
+        stroke="#2188ab"
         strokeOpacity=".22"
         strokeDasharray="2 10"
       />
@@ -271,14 +271,14 @@ export function CarWashTunnel({ className }: { className?: string }) {
         cy="150"
         r="205"
         fill="none"
-        stroke="#6C4AB7"
+        stroke="#2188ab"
         strokeOpacity=".12"
         strokeDasharray="2 12"
       />
 
       {/* Floor */}
       <path d="M 80 360 L 640 360 L 720 532 L 0 532 Z" fill="url(#cwt-floor)" />
-      <path d="M 80 360 L 640 360" stroke="#A078C8" strokeOpacity=".25" strokeWidth="1.5" />
+      <path d="M 80 360 L 640 360" stroke="#7cc5dc" strokeOpacity=".25" strokeWidth="1.5" />
       {Array.from({ length: 7 }, (_, i) => {
         const xTop = 80 + (560 / 6) * i;
         const xBottom = (720 / 6) * i;
@@ -289,7 +289,7 @@ export function CarWashTunnel({ className }: { className?: string }) {
             y1={360}
             x2={xBottom}
             y2={532}
-            stroke="#6C4AB7"
+            stroke="#2188ab"
             strokeOpacity=".14"
           />
         );
@@ -305,7 +305,7 @@ export function CarWashTunnel({ className }: { className?: string }) {
             y1={y}
             x2={right}
             y2={y}
-            stroke="#6C4AB7"
+            stroke="#2188ab"
             strokeOpacity=".13"
           />
         );
@@ -313,10 +313,10 @@ export function CarWashTunnel({ className }: { className?: string }) {
 
       {/* Floor process labels */}
       <g
-        fill="#C0A0D8"
-        fillOpacity=".72"
+        fill="#b0ddea"
+        fillOpacity=".85"
         fontFamily="monospace"
-        fontSize="10"
+        fontSize="10.5"
         letterSpacing="2.5"
       >
         <text x="150" y="542" transform="rotate(-2 150 542)">PRE-SOAK</text>
@@ -332,7 +332,7 @@ export function CarWashTunnel({ className }: { className?: string }) {
         cy="470"
         rx="260"
         ry="52"
-        fill="#08001F"
+        fill="#02141d"
         opacity=".35"
         filter="url(#cwt-soft)"
       />
@@ -340,21 +340,21 @@ export function CarWashTunnel({ className }: { className?: string }) {
       <path
         d="M 315 365 L 485 365 L 645 505 L 155 505 Z"
         fill="none"
-        stroke="#4E117F"
+        stroke="#145974"
         strokeWidth="2"
       />
-      <path d="M 155 505 L 645 505" stroke="#8A5FB8" strokeWidth="2" strokeOpacity=".55" />
-      <path d="M 315 365 L 155 505" stroke="#A078C8" strokeOpacity=".28" />
-      <path d="M 485 365 L 645 505" stroke="#A078C8" strokeOpacity=".28" />
+      <path d="M 155 505 L 645 505" stroke="#43a6c6" strokeWidth="2" strokeOpacity=".55" />
+      <path d="M 315 365 L 155 505" stroke="#7cc5dc" strokeOpacity=".28" />
+      <path d="M 485 365 L 645 505" stroke="#7cc5dc" strokeOpacity=".28" />
       <path
         d="M 400 365 L 400 505"
-        stroke="#8A5FB8"
+        stroke="#43a6c6"
         strokeWidth="1.5"
         strokeDasharray="6 10"
         strokeOpacity=".3"
       />
-      <path d="M 355 365 L 280 505" stroke="#6C4AB7" strokeOpacity=".2" />
-      <path d="M 445 365 L 520 505" stroke="#6C4AB7" strokeOpacity=".2" />
+      <path d="M 355 365 L 280 505" stroke="#2188ab" strokeOpacity=".2" />
+      <path d="M 445 365 L 520 505" stroke="#2188ab" strokeOpacity=".2" />
       {Array.from({ length: 8 }, (_, i) => {
         const t = i / 7;
         const xL = 315 + (155 - 315) * t;
@@ -363,13 +363,13 @@ export function CarWashTunnel({ className }: { className?: string }) {
         const r = 5 + 3 * t;
         return (
           <g key={`roller-${i}`}>
-            <ellipse cx={xL} cy={y} rx={r} ry={r * 0.36} fill="#4E117F" opacity=".7" />
-            <ellipse cx={xR} cy={y} rx={r} ry={r * 0.36} fill="#4E117F" opacity=".7" />
+            <ellipse cx={xL} cy={y} rx={r} ry={r * 0.36} fill="#145974" opacity=".7" />
+            <ellipse cx={xR} cy={y} rx={r} ry={r * 0.36} fill="#145974" opacity=".7" />
           </g>
         );
       })}
-      <path d="M 155 505 L 645 505 L 630 515 L 170 515 Z" fill="#2A0B5A" />
-      <path d="M 170 515 L 630 515" stroke="#C010A0" strokeOpacity=".45" strokeWidth="1.5" />
+      <path d="M 155 505 L 645 505 L 630 515 L 170 515 Z" fill="#0b3142" />
+      <path d="M 170 515 L 630 515" stroke="#166e8f" strokeOpacity=".45" strokeWidth="1.5" />
 
       {/* Back car + back arch */}
       <use href="#cwt-car-symbol" transform="translate(414 330) scale(0.42) skewY(-4)" opacity=".32" />
@@ -378,23 +378,23 @@ export function CarWashTunnel({ className }: { className?: string }) {
       {/* Brushes behind the car + overhead brush */}
       <g opacity=".9">
         <rect x="228" y="248" width="28" height="138" rx="14" fill="url(#cwt-brush)" />
-        <ellipse cx="242" cy="250" rx="14" ry="5.5" fill="#8FA6FF" />
-        <ellipse cx="242" cy="384" rx="14" ry="5.5" fill="#2A166F" />
+        <ellipse cx="242" cy="250" rx="14" ry="5.5" fill="#7ad4ff" />
+        <ellipse cx="242" cy="384" rx="14" ry="5.5" fill="#0d3a4d" />
         <path
           d="M233 258 L233 378 M239 255 L239 381 M245 255 L245 381 M251 258 L251 378"
-          stroke="#C8D4FF"
+          stroke="#b8e7ff"
           strokeWidth="1"
           strokeOpacity=".45"
         />
-        <rect x="238" y="205" width="8" height="48" rx="4" fill="#4E117F" opacity=".55" />
+        <rect x="238" y="205" width="8" height="48" rx="4" fill="#145974" opacity=".55" />
       </g>
       <g>
         <rect x="300" y="225" width="200" height="28" rx="14" fill="url(#cwt-brush)" />
-        <ellipse cx="400" cy="227" rx="100" ry="5" fill="#8FA6FF" opacity=".9" />
-        <ellipse cx="400" cy="251" rx="100" ry="5" fill="#24104A" opacity=".9" />
+        <ellipse cx="400" cy="227" rx="100" ry="5" fill="#7ad4ff" opacity=".9" />
+        <ellipse cx="400" cy="251" rx="100" ry="5" fill="#0b3142" opacity=".9" />
         <path
           d="M320 230 L320 248 M340 228 L340 250 M360 227 L360 251 M380 227 L380 251 M400 227 L400 251 M420 227 L420 251 M440 227 L440 251 M460 227 L460 251 M480 228 L480 250"
-          stroke="#C8D4FF"
+          stroke="#b8e7ff"
           strokeWidth="1"
           strokeOpacity=".45"
         />
@@ -404,7 +404,7 @@ export function CarWashTunnel({ className }: { className?: string }) {
       <Portal x={400} top={185} bottom={420} width={270} thickness={22} opacity={0.78} />
 
       {/* Water mist behind car */}
-      <ellipse cx="400" cy="330" rx="160" ry="44" fill="url(#cwt-aqua-glow)" opacity=".55" />
+      <ellipse cx="400" cy="330" rx="160" ry="44" fill="url(#cwt-sky-glow)" opacity=".55" />
 
       {/* Main car */}
       <use href="#cwt-car-symbol" transform="translate(260 330) scale(1.15) skewY(-4)" />
@@ -412,21 +412,21 @@ export function CarWashTunnel({ className }: { className?: string }) {
       {/* Brush in front of the car */}
       <g>
         <rect x="520" y="242" width="30" height="146" rx="15" fill="url(#cwt-brush)" />
-        <ellipse cx="535" cy="244" rx="15" ry="6" fill="#8FA6FF" />
-        <ellipse cx="535" cy="386" rx="15" ry="6" fill="#2A166F" />
+        <ellipse cx="535" cy="244" rx="15" ry="6" fill="#7ad4ff" />
+        <ellipse cx="535" cy="386" rx="15" ry="6" fill="#0d3a4d" />
         <path
           d="M526 252 L526 380 M532 249 L532 383 M538 249 L538 383 M544 252 L544 380"
-          stroke="#C8D4FF"
+          stroke="#b8e7ff"
           strokeWidth="1"
           strokeOpacity=".45"
         />
-        <rect x="531" y="200" width="8" height="44" rx="4" fill="#4E117F" opacity=".55" />
+        <rect x="531" y="200" width="8" height="44" rx="4" fill="#145974" opacity=".55" />
       </g>
 
       {/* Water jets */}
       <g
         fill="none"
-        stroke="#80F0F0"
+        stroke="#7AD4FF"
         strokeWidth="2"
         strokeLinecap="round"
         strokeDasharray="4 8"
@@ -438,7 +438,7 @@ export function CarWashTunnel({ className }: { className?: string }) {
         <path d="M450 196 C452 240 448 276 452 320" opacity=".9" />
         <path d="M490 196 C492 236 486 266 490 316" opacity=".7" />
       </g>
-      <g fill="#80F0F0">
+      <g fill="#7AD4FF">
         <circle cx="338" cy="322" r="2.6" opacity=".9" />
         <circle cx="372" cy="326" r="2.2" opacity=".8" />
         <circle cx="410" cy="328" r="2.8" opacity=".9" />
@@ -460,7 +460,7 @@ export function CarWashTunnel({ className }: { className?: string }) {
       {/* Dryer air + sparkles */}
       <g
         fill="none"
-        stroke="#C0A0D8"
+        stroke="#7cc5dc"
         strokeWidth="2"
         strokeLinecap="round"
         strokeDasharray="2 8"
@@ -470,9 +470,9 @@ export function CarWashTunnel({ className }: { className?: string }) {
         <path d="M558 342 C586 332 600 360 626 350" />
         <path d="M546 380 C574 372 590 396 616 388" />
       </g>
-      <ellipse cx="590" cy="346" rx="64" ry="48" fill="url(#cwt-aqua-glow)" opacity=".35" />
+      <ellipse cx="590" cy="346" rx="64" ry="48" fill="url(#cwt-sky-glow)" opacity=".35" />
 
-      <g fill="#80F0F0">
+      <g fill="#7AD4FF">
         <g transform="translate(270 250) scale(0.8)">
           <use href="#cwt-spark-symbol" className="animate-twinkle" />
         </g>
@@ -505,7 +505,7 @@ export function CarWashTunnel({ className }: { className?: string }) {
           />
         </g>
       </g>
-      <g fill="none" stroke="#80F0F0" strokeOpacity=".28">
+      <g fill="none" stroke="#7AD4FF" strokeOpacity=".28">
         <circle cx="292" cy="286" r="6" />
         <circle cx="472" cy="292" r="9" />
         <circle cx="518" cy="250" r="4.5" />
@@ -517,20 +517,20 @@ export function CarWashTunnel({ className }: { className?: string }) {
       {/* Front arch + exiting car */}
       <Portal x={400} top={150} bottom={480} width={360} thickness={28} opacity={1} />
       <g>
-        <circle cx="400" cy="150" r="16" fill="#80F0F0" opacity=".14" />
-        <circle cx="400" cy="150" r="5" fill="#80F0F0" />
-        <circle cx="352" cy="164" r="3" fill="#D61FA8" opacity=".8" />
-        <circle cx="448" cy="164" r="3" fill="#D61FA8" opacity=".8" />
+        <circle cx="400" cy="150" r="16" fill="#7AD4FF" opacity=".14" />
+        <circle cx="400" cy="150" r="5" fill="#7AD4FF" />
+        <circle cx="352" cy="164" r="3" fill="#38bdf8" opacity=".8" />
+        <circle cx="448" cy="164" r="3" fill="#38bdf8" opacity=".8" />
       </g>
 
       <use href="#cwt-car-symbol" transform="translate(178 400) scale(0.8) skewY(-4)" opacity=".95" />
 
       {/* Floor splash in front */}
-      <g fill="none" stroke="#80F0F0" strokeOpacity=".35" strokeWidth="2" strokeLinecap="round">
+      <g fill="none" stroke="#7AD4FF" strokeOpacity=".35" strokeWidth="2" strokeLinecap="round">
         <path d="M250 484 Q286 470 320 484" />
         <path d="M290 500 Q320 488 350 500" />
       </g>
-      <ellipse cx="300" cy="492" rx="92" ry="10" fill="#41FAE9" opacity=".08" />
+      <ellipse cx="300" cy="492" rx="92" ry="10" fill="#38BDF8" opacity=".08" />
     </svg>
   );
 }
