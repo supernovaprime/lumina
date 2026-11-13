@@ -15,7 +15,7 @@ export default function HomePage() {
     >
       <SiteHeader />
 
-      <div className="stage-surface relative mx-auto flex max-w-[var(--container-page)] flex-col overflow-hidden rounded-[2rem] sm:rounded-[2.5rem]">
+      <div className="stage-surface relative mx-auto flex max-w-[var(--container-page)] flex-col overflow-clip rounded-[2rem] sm:rounded-[2.5rem]">
         <div className="flex min-h-[calc(100dvh-5.25rem)] flex-col sm:min-h-[calc(100dvh-6.25rem)] lg:min-h-[calc(100dvh-7rem)]">
           <Hero />
         </div>
