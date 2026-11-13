@@ -49,11 +49,12 @@ export function NewsletterForm() {
           placeholder="Enter your email"
           aria-invalid={Boolean(error)}
           aria-describedby={error ? "newsletter-error" : undefined}
+          className="dark:border-white/10 dark:bg-white/[0.06] dark:text-sand-50 dark:placeholder:text-sand-300/50 dark:focus-visible:border-gold-400/60 dark:focus-visible:ring-gold-400/20"
         />
         <Button
           type="submit"
           size="icon"
-          className="size-12 shrink-0"
+          className="size-12 shrink-0 bg-teal-600 text-white shadow-[0_10px_24px_-14px_rgba(10,147,150,0.8)] hover:bg-teal-700 dark:bg-gold-500 dark:text-navy-950 dark:shadow-[0_10px_24px_-14px_rgba(238,155,0,0.55)] dark:hover:bg-gold-400"
           aria-label="Subscribe"
         >
           <ArrowRight aria-hidden="true" />

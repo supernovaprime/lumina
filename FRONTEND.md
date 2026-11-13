@@ -1,6 +1,10 @@
 # FRONTEND.md — Lumina (CarWash) Frontend Scaffold
 
-> **Status:** SCAFFOLD / SPEC — no implementation yet.
+> **Status:** SCAFFOLD / SPEC — design direction 2.0 planned; new implementation not started.
+> **Active plan:** §0 "Violet Wash" (new visual direction, sampled from `frontend/landing-page-inspiration.jpg`).
+> §1 "Deep Water & Gold" is the legacy scaffold; see the repo-state note below.
+> **Repo state:** the previous implementation has been archived at `legacy-frontend/frontend/` for
+> reference. The new frontend will be scaffolded fresh in `frontend/` against the §0 plan.
 > **Stack (per `ARCHITECTURE.md`):** Next.js 14+ (App Router) · Tailwind CSS v4 · shadcn/ui ·
 > TanStack Query · React Hook Form + Zod · Leaflet + OpenStreetMap · Nominatim ·
 > NextAuth.js v5 (credentials bridge to NestJS JWT) · Vercel.
@@ -9,9 +13,285 @@
 
 ---
 
-## 1. Design System — "Deep Water & Gold"
+## 0. Design Direction 2.0 — "Violet Wash" (NEW PLAN)
 
-Brand anchors (user-supplied, **do not change these hex values**):
+> **Status:** Proposed — not implemented. This section supersedes the "Deep Water & Gold" palette in §1
+> for the next frontend pass. Keep §1 and `legacy-frontend/frontend/` as the legacy reference.
+> **Reference:** `frontend/landing-page-inspiration.jpg` ("Automated Car Wash" hero). Treat it as a
+> reference only — do not import or ship it as a production asset.
+> **Intent:** Move Lumina from glassy teal/gold marketing surfaces to a flat, editorial, neon-violet
+> car-wash identity. Keep all routes, booking flows, API contracts, validation rules, and accessibility
+> requirements in this document unchanged.
+
+### 0.1 What the reference actually shows (layout read)
+
+The reference is not a generic purple landing page; its structure is specific:
+
+1. **Outer field:** a deep violet viewport.
+2. **Inset stage:** one large rounded rectangle (≈32–40 px radius) fills most of the viewport, slightly
+   lighter than the outer field, with a subtle gradient and a soft edge. There is no separate card
+   floating in the middle — the stage *is* the page.
+3. **Header inside the stage:** script wordmark at the far left; centered, evenly spaced nav links;
+   `Sign In` + circular search icon at the far right. Transparent background, no glass pill.
+4. **Hero split:** roughly 40% copy / 60% illustration. The left column holds a two-line
+   high-contrast serif headline, a short paragraph, and two pill CTAs (filled magenta primary,
+   outlined magenta secondary). The right column holds an isometric car-wash tunnel: cars, brushes,
+   water jets, and floor labels (`PRE-SOAK`, `UNDER-CARRIAGE`, `WASHING`, `RINSING`, `WAX ON`, `DRYING`).
+5. **Surfaces:** flat. No frosted glass, no floating photo cards, no heavy shadows. Depth comes from
+   layered violet values, thin lavender hairlines, and the isometric illustration.
+6. **Accents:** vivid magenta/pink for the logo and CTAs; electric blue/periwinkle for the machinery;
+   lavender for secondary text and floor labels; cyan/white for water and sparkles.
+
+### 0.2 Extracted palette
+
+Sampled from the reference with median-cut quantization and HSV grouping. Values marked *derived* are
+invented only for interaction states or contrast; the rest are dominant colors from the image.
+
+| Token | Hex | Source | Intended use |
+|---|---|---|---|
+| `plum-950` | `#100048` | image | page base, deepest wells |
+| `plum-900` | `#180050` | image | outer stage, footer |
+| `plum-850` | `#200050` | image | main stage body |
+| `plum-800` | `#280050` | image | alternating section bands |
+| `plum-700` | `#300058` | image | raised/flat panels |
+| `plum-600` | `#4E117F` | image | borders, shadows, illustration depth |
+| `plum-500` | `#6C4AB7` | image | illustration mids, muted charts |
+| `orchid-700` | `#7A066D` | derived | pressed/deep accent |
+| `orchid-600` | `#A00890` | image | pressed/hover fill |
+| `orchid-500` | `#C010A0` | image | primary CTA fill, logo accent |
+| `orchid-400` | `#D61FA8` | image | hover/highlight fill |
+| `orchid-300` | `#F08BD8` | derived | small accent text on dark |
+| `cobalt-600` | `#3A2BB0` | derived | deep blue accent |
+| `cobalt-500` | `#5040D0` | image | brushes/machinery, secondary accent |
+| `cobalt-400` | `#5078E0` | image | water/brush highlights |
+| `sky-400` | `#4A95E8` | image | info, focus, small accents |
+| `lilac-500` | `#8A5FB8` | derived | muted icon fill |
+| `lilac-400` | `#A078C8` | image | muted body text on dark |
+| `lilac-300` | `#C0A0D8` | image | secondary headings, icons |
+| `lilac-200` | `#D8C0E8` | image | hairlines, soft fills |
+| `paper` | `#EFEEFF` | image | primary text on dark, light-mode bg |
+| `aqua-300` | `#80F0F0` | image | water sparkle, success highlight |
+| `ink` | `#141321` | derived | light-mode body text |
+
+**Contrast guardrails**
+
+- `#C010A0` on `#100048` is **3.4:1** — use it for fills and large display accents, not small text.
+  Use `#F08BD8` for small orchid text on dark.
+- `paper` on `plum-950` is **16.4:1**; `lilac-400` on `plum-950` is **5.4:1**;
+  `cobalt-400` on `plum-950` is **6.1:1**.
+- On light paper, `#C010A0` is **4.8:1**; use `#A00890` for small text. Cobalt on paper is below
+  AA for body text, so reserve it for large text, icons, and illustration.
+- Keep destructive / success on the existing Tailwind red/green families; do not tint them violet.
+
+### 0.3 Suggested Tailwind v4 ramps
+
+Use branded family names so we do not overwrite Tailwind's default `violet`, `blue`, `sky`, etc.
+
+```css
+@theme {
+  --color-plum-50: #f4f0ff;
+  --color-plum-100: #efeeff;
+  --color-plum-200: #d8c0e8;
+  --color-plum-300: #c0a0d8;
+  --color-plum-400: #a078c8;
+  --color-plum-500: #6c4ab7;
+  --color-plum-600: #4e117f;
+  --color-plum-700: #300058;
+  --color-plum-800: #280050;
+  --color-plum-900: #180050;
+  --color-plum-950: #100048;
+
+  --color-orchid-200: #ffd6f2;
+  --color-orchid-300: #f08bd8;
+  --color-orchid-400: #d61fa8;
+  --color-orchid-500: #c010a0;
+  --color-orchid-600: #a00890;
+  --color-orchid-700: #7a066d;
+
+  --color-cobalt-300: #8fa6ff;
+  --color-cobalt-400: #5078e0;
+  --color-cobalt-500: #5040d0;
+  --color-cobalt-600: #3a2bb0;
+
+  --color-lilac-100: #efeeff;
+  --color-lilac-200: #d8c0e8;
+  --color-lilac-300: #c0a0d8;
+  --color-lilac-400: #a078c8;
+  --color-lilac-500: #8a5fb8;
+
+  --color-aqua-200: #b8fbf2;
+  --color-aqua-300: #80f0f0;
+  --color-aqua-400: #41fae9;
+
+  --color-paper: #efeeff;
+  --color-ink: #141321;
+}
+```
+
+Keep the ramps short unless a real UI state needs another step. The anchors above are the sampled
+values; do not invent extra steps just to fill a 50–950 grid.
+
+### 0.4 Semantic tokens
+
+Dark is the image-native mode. Light is a derived lavender-paper inversion so the theme toggle keeps
+working and the product does not become dark-only.
+
+| Token | Dark (native) | Light (derived) |
+|---|---|---|
+| `background` | `#100048` (plum-950) | `#EFEEFF` (paper) |
+| `foreground` | `#EFEEFF` (paper) | `#141321` (ink) |
+| `surface` | `#180050` (plum-900) | `#F8F5FF` |
+| `surface-raised` | `#200050` (plum-850) | `#FFFFFF` |
+| `surface-sunken` | `#100048` (plum-950) | `#F0EDFF` |
+| `muted-foreground` | `#A078C8` (lilac-400) | `#4E117F` (plum-600) |
+| `border` | `rgba(216,192,232,0.18)` / `#4E117F` | `#D8C0E8` (lilac-200) |
+| `primary` | `#C010A0` (orchid-500) | `#A00890` (orchid-600) |
+| `primary-foreground` | `#FFFFFF` | `#FFFFFF` |
+| `primary-hover` | `#D61FA8` (orchid-400) | `#C010A0` (orchid-500) |
+| `accent` (secondary/info) | `#5078E0` (cobalt-400) | `#5040D0` (cobalt-500) |
+| `accent-foreground` | `#100048` | `#FFFFFF` |
+| `ring` | `#F08BD8` (orchid-300) | `#A00890` (orchid-600) |
+| `highlight` | `#80F0F0` (aqua-300) | `#C010A0` (orchid-500) |
+
+Rules:
+- Marketing surfaces are flat. Do not use `backdrop-blur` for cards, panels, or the stage.
+- Use the stage + section bands for depth. Borders are 1 px lilac/15–20, not white/opaque.
+- Buttons are pills. Primary = orchid fill + white text. Secondary = transparent with 1 px orchid
+  border + paper text. Tertiary = text link with arrow.
+- Focus rings use `ring-2 ring-ring` with an offset that matches the surface.
+- No raw hex in components; all colors come from semantic utilities.
+
+### 0.5 Typography, shape, and motion
+
+- **Display:** high-contrast serif. Proposed: **Fraunces** (variable, expressive) or
+  **DM Serif Display**. This is the defining change from the current sans display. Fallback:
+  `Georgia, "Times New Roman", serif`.
+- **Body/UI:** **IBM Plex Sans** (already in the implementation) — keep. Fallback: Arial, sans-serif.
+- **Data:** **IBM Plex Mono** (already) — keep for prices, times, booking refs, and slot labels.
+- **Optional script:** the reference uses a script wordmark. Explore a refined script for the
+  wordmark or a small "car wash" kicker, but never for body copy. Decide during brand review.
+- **Radius:** stage `2rem–2.5rem`; flat cards `1.25rem–1.5rem`; buttons/inputs pills (`999px`).
+  Auth fields may use a 0.75–0.875rem radius for underline-style inputs.
+- **Shadows:** minimal. A single raised-stage shadow such as
+  `0 30px 80px -40px rgba(16,0,72,0.9)`. No layered glass shadows.
+- **Motion:** ambient only — water jets, sparkles, slow brush rotation, a car gliding through the
+  tunnel. Keep text/CTA transitions ≤200 ms. Respect `prefers-reduced-motion`; always provide a
+  static illustration fallback.
+
+### 0.6 Layout blueprint — marketing pages
+
+**Global shell**
+
+- `body`: plum-950 with a fixed radial glow — orchid at top-right, cobalt at bottom-left, plus a
+  faint lilac orbit ring. Keep the texture quiet.
+- `Stage`: inset 16–24 px on desktop, 8–12 px on mobile; rounded `2rem–2.5rem`; background
+  `linear-gradient(135deg, #180050, #200050 55%, #280050)`; 1 px
+  `rgba(216,192,232,0.16)` border; `overflow-hidden`. Do not wrap the stage in another card.
+- Container: `max-w-[1440px]`, `px-5 sm:px-8 lg:px-12 xl:px-20`, section rhythm 96–140 px.
+
+**Header**
+
+- Inside the stage: wordmark left (existing mark + serif/script "Lumina"), centered nav links
+  (Home, Services, How it works, Why Lumina, Support), right `Sign in` text link + circular search
+  icon. No glass pill.
+- Hover: 1 px orchid underline + paper text. Focus: 2 px orchid ring.
+- Mobile: wordmark + search + menu sheet. The sheet uses plum-900; no white glass.
+
+**Hero**
+
+- 12-column grid; left 5 columns, right 7 columns.
+- Eyebrow: mono uppercase, e.g. `CAR WASH, SIMPLIFIED · ACCRA`, in orchid-300/lilac-300.
+- Display: serif, `clamp(3.25rem, 6vw, 5.75rem)`, line-height `0.95–1.02`, two lines. Proposed
+  copy: "A brighter shine, on your schedule." Keep "Cleaner cars. Brighter days." for the closing
+  band unless it wins as the hero.
+- Body: `max-w-md`, lilac-300, 1.05–1.2 rem.
+- CTAs: filled orchid pill (white text, hover orchid-400) + outlined orchid pill (paper text).
+  Arrow icons on both. No gradient buttons unless a single campaign moment needs one.
+- Right: `CarWashTunnel` isometric illustration. Cars move through pre-soak → wash → rinse → wax →
+  dry; brushes cobalt, water aqua, car bodies orchid/plum, floor labels lilac. The illustration
+  should touch the stage's right edge and overlap the hero's vertical center. Keep the text column
+  clear.
+- Decorations: sparse sparkles and water droplets. Retire the current `Beams` hero background
+  unless a subtle ambient layer is explicitly approved.
+
+**Below the fold**
+
+- Alternate `plum-950` and `plum-900` bands; each section is a `SectionFrame` with a 1 px
+  lilac/12 top border or a soft radial glow.
+- Cards: `plum-800`/`plum-700` flat surfaces, 1.25 rem radius, 1 px lilac/15 border, no blur.
+  Hover: border orchid-500/40, `translate-y-0.5`, shadow plum-950/60.
+- Icons: 1.5 px stroke; cobalt-400 or orchid-400. Services can use filled isometric spot icons.
+- Section headings: serif `h2` with one orchid/lilac accent word; eyebrow in mono uppercase.
+- Services: 3-column cards with spot icon, "from GHS" price, and a compare link.
+- How it works: 3-step rail with numbered orchid chips and a thin lilac dashed connector.
+- Why Lumina: split section with a large car/droplet illustration and a feature list with cobalt checks.
+- Testimonials: 2–3 quote cards; orchid stars, paper quotes, lilac names.
+- AppBand/CTA: full-bleed orchid-to-plum panel, serif white headline, white pill CTA with plum text,
+  plus one outline secondary CTA.
+- Footer: plum-950, lilac text, thin lilac/15 divider, script tagline in orchid-300. Flat, no glass.
+
+### 0.7 Auth pages (login / register) — replaces the current glass split card
+
+- Standalone `AuthStage`: same plum shell and inset rounded stage as marketing, but no marketing
+  navbar/footer. Header: wordmark top-left; theme toggle + "Back to home" top-right.
+- Inside the stage: a card-less two-column split.
+  - Left 7 columns: `CarWashTunnel` crop or a clean editorial car-wash visual. No floating photo
+    chips, no glass panels.
+  - Right 5 columns: form on a flat `plum-800` panel with 1 px lilac/15 border and a 2 rem radius.
+- Type: serif "Welcome back." heading; short lilac-300 copy; labels in mono/small caps.
+- Fields: underline style — transparent background, 1 px lilac/25 bottom border, focus
+  orchid-300 border + 2 px ring. Password visibility toggle at the right. This mirrors the
+  reference's airy form and removes the rounded-glass inputs from the previous attempt.
+- Row: Remember me (custom orchid checkbox) + Forgot password? (orchid-300 link) on one line.
+- Primary CTA: full-width orchid-500 pill, white text, arrow. Secondary: "Explore washes" outline
+  pill or text link.
+- Footer of form: "New to Lumina? Create an account" plus a tiny terms line. Remove app-store
+  badges and the old trust-chip row; one shield line is enough.
+- Mobile: form first; the illustration becomes a 160–200 px banner above it (or hides) with the
+  same violet overlay.
+- The current teal/gold glass login implementation (archived at
+  `legacy-frontend/frontend/app/login`) is to be replaced, not extended.
+
+### 0.8 What to retire from the old direction
+
+- Teal/gold gradients, `backdrop-blur` marketing cards, floating photo chips, and heavy shadows.
+- The current `Beams` hero background (keep only if approved as a subtle ambient layer).
+- Rounded glass auth inputs; use underline fields or flat panels instead.
+- Dark-assumed footer styling. The new footer is flat plum with lilac text in both themes.
+
+### 0.9 Implementation phases
+
+0. **Scaffold:** create the new Next.js 14 App Router + Tailwind v4 app in `frontend/`; keep
+   `legacy-frontend/frontend/` read-only as the reference. Do not copy the old glass/teal styling.
+1. **Foundation:** add plum/orchid/cobalt/lilac/aqua tokens and semantic tokens; switch the display
+   font; leave routes, APIs, and data untouched.
+2. **Primitives:** `Stage`, `SectionFrame`, `PillButton`, `UnderlineField`, `IsoIcon`, `Sparkle`,
+   `CarWashTunnel` (SVG-first; optional WebGL water).
+3. **Landing rebuild:** header, hero, services, how it works, why, testimonials, app band, footer.
+4. **Auth rebuild:** login and register using §0.7.
+5. **Remaining routes:** search, support, legal, dashboards — token pass and flat-surface updates.
+6. **QA:** light/dark, contrast, 360/768/1024/1440, reduced motion, focus rings, no raw hex in
+   components, no glass on marketing surfaces.
+
+### 0.10 Open decisions
+
+- **Light mode:** keep the derived lavender-paper theme (recommended) or ship dark-only?
+- **Display serif:** Fraunces vs DM Serif Display vs Playfair Display.
+- **Logo:** keep the existing mark/wordmark or explore a script wordmark like the reference?
+- **Hero illustration:** SVG/CSS-first (recommended for performance) or WebGL for water/brush motion?
+- **Beams:** retire from the marketing hero, or keep as a subtle ambient layer behind the stage?
+- **Permanence:** is "Violet Wash" the new permanent brand direction, or a campaign skin alongside
+  "Deep Water & Gold"? This plan assumes permanent replacement.
+
+---
+
+## 1. Design System — "Deep Water & Gold" (LEGACY — superseded by §0)
+
+> Legacy palette retained for reference while the current code is still on it. Do not start new work
+> against this palette; use §0. The anchors below belong to the legacy direction; §0 defines the new
+> sampled palette.
+
+Brand anchors (legacy, **do not change these hex values**):
 
 ```css
 @import "tailwindcss";

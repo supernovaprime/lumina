@@ -1,55 +1,29 @@
-import { Navbar } from "@/components/landing/Navbar";
+import { Clock, MapPin } from "lucide-react";
+
 import { Hero } from "@/components/landing/Hero";
-import { HeroBackdrop } from "@/components/landing/HeroBackdrop";
-import { TrustBand } from "@/components/landing/TrustBand";
-import { ServicesGrid } from "@/components/landing/ServicesGrid";
-import { HowItWorks } from "@/components/landing/HowItWorks";
-import { WhyLumina } from "@/components/landing/WhyLumina";
-import { Testimonials } from "@/components/landing/Testimonials";
-import { AppBand } from "@/components/landing/AppBand";
-import { Footer } from "@/components/layout/Footer";
+import { SiteHeader } from "@/components/landing/SiteHeader";
 
-export default function LandingPage() {
+export default function HomePage() {
   return (
-    <>
-      <Navbar />
-      <main className="relative isolate overflow-hidden bg-[#f7f5ec] dark:bg-[#071a20]">
-        {/* Decorative gradient background */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 overflow-hidden"
-        >
-          <div
-            className="absolute inset-0 dark:hidden"
-            style={{
-              backgroundImage:
-                "radial-gradient(75% 80% at 100% 0%, rgba(10,147,150,0.14), transparent 60%), radial-gradient(80% 80% at 0% 100%, rgba(238,155,0,0.12), transparent 62%), linear-gradient(125deg, #f6f5ec 0%, #eef4ef 48%, #f4f1e7 100%)",
-            }}
-          />
-          <div className="absolute -left-32 top-16 size-[32rem] rounded-full bg-teal-300/20 blur-3xl dark:bg-teal-500/10" />
-          <div className="absolute -right-24 bottom-0 size-[26rem] rounded-full bg-gold-300/16 blur-3xl dark:bg-gold-500/[0.08]" />
-          <div className="absolute inset-0 bg-white/15 dark:hidden" />
+    <main className="min-h-dvh bg-background p-2 sm:p-3 lg:p-4">
+      <div className="stage-surface relative mx-auto flex min-h-[calc(100dvh-1rem)] max-w-[var(--container-page)] flex-col overflow-hidden rounded-[2rem] sm:min-h-[calc(100dvh-1.5rem)] sm:rounded-[2.5rem] lg:min-h-[calc(100dvh-2rem)]">
+        <SiteHeader />
+        <Hero />
 
-          {/* Pill badge with pulsing dot */}
-          <div className="absolute top-24 right-1/2 translate-x-1/2 inline-flex items-center gap-2 rounded-full border border-gold-400/30 bg-gold-400/10 px-4 py-1.5 backdrop-blur-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-gold-400 animate-pulse" />
-            <p className="text-label font-semibold uppercase tracking-[0.1em] text-gold-600 dark:text-gold-300">
-              Ready when you are
-            </p>
-          </div>
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-border/60 px-5 py-4 text-label uppercase tracking-[0.16em] text-muted-foreground sm:px-8 lg:px-12">
+          <span className="flex items-center gap-2">
+            <MapPin aria-hidden="true" className="size-3.5 text-orchid-500 dark:text-orchid-300" />
+            Accra · East Legon
+          </span>
+          <span className="hidden text-muted-foreground/80 sm:inline">
+            Exterior · Interior · Wax · Detailing
+          </span>
+          <span className="flex items-center gap-2">
+            <Clock aria-hidden="true" className="size-3.5 text-orchid-500 dark:text-orchid-300" />
+            Open daily · 7am – 8pm
+          </span>
         </div>
-
-        <HeroBackdrop>
-          <Hero />
-          <TrustBand />
-        </HeroBackdrop>
-        <ServicesGrid />
-        <HowItWorks />
-        <WhyLumina />
-        <Testimonials />
-        <AppBand />
-      </main>
-      <Footer />
-    </>
+      </div>
+    </main>
   );
 }

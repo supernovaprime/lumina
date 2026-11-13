@@ -1,47 +1,22 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Droplets } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 
-type BrandMarkProps = {
-  className?: string;
-  tagline?: boolean;
-  tone?: "default" | "light";
-};
-
-export function BrandMark({
-  className,
-  tagline = true,
-  tone = "default",
-}: BrandMarkProps) {
+export function BrandMark({ className }: { className?: string }) {
   return (
-    <span className={cn("flex items-center gap-2.5", className)}>
-      <Image
-        src="/assets/logo-mark.png"
-        alt=""
-        width={80}
-        height={80}
-        sizes="40px"
-        className="size-10 shrink-0 rounded-md object-cover"
-      />
-      <span className="leading-none">
-        <span
-          className={cn(
-            "block font-display text-xl font-bold tracking-tight",
-            tone === "light" ? "text-white" : "text-foreground",
-          )}
-        >
-          Lumi<span className={tone === "light" ? "text-lagoon-300" : "text-brand"}>na</span>
-        </span>
-        {tagline && (
-          <span
-            className={cn(
-              "mt-1 block text-label font-medium",
-              tone === "light" ? "text-sand-300" : "text-muted-foreground",
-            )}
-          >
-            Cleaner cars. Brighter days.
-          </span>
-        )}
+    <Link
+      href="/"
+      aria-label="Lumina home"
+      className={cn("group inline-flex items-center gap-2.5 focus-visible:outline-none", className)}
+    >
+      <span className="relative grid size-9 place-items-center rounded-xl bg-gradient-to-br from-orchid-400 via-orchid-500 to-cobalt-500 shadow-[0_0_26px_-6px_rgba(214,31,168,0.65)] transition-transform duration-300 group-hover:-rotate-6">
+        <Droplets aria-hidden="true" className="size-[18px] text-white" strokeWidth={2.2} />
+        <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-aqua-300 shadow-[0_0_10px_#80f0f0]" />
       </span>
-    </span>
+      <span className="font-display text-[1.7rem] font-semibold italic leading-none tracking-tight text-foreground">
+        Lumi<span className="text-orchid-500 dark:text-orchid-300">na</span>
+      </span>
+    </Link>
   );
 }

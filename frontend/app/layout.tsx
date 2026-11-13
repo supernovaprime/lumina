@@ -1,19 +1,29 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
-import { MotionProvider } from "@/components/motion/MotionProvider";
+
 import "./globals.css";
 
-const display = localFont({
-  src: "./fonts/bricolage-grotesque-latin.woff2",
-  weight: "600 800",
-  style: "normal",
-  variable: "--font-bricolage",
+const fraunces = localFont({
+  src: [
+    {
+      path: "./fonts/fraunces-latin.woff2",
+      weight: "100 900",
+      style: "normal",
+    },
+    {
+      path: "./fonts/fraunces-italic-latin.woff2",
+      weight: "100 900",
+      style: "italic",
+    },
+  ],
+  variable: "--font-fraunces",
   display: "swap",
   fallback: ["Georgia", "serif"],
 });
 
-const sans = localFont({
+const plexSans = localFont({
   src: "./fonts/ibm-plex-sans-latin.woff2",
   weight: "400 600",
   style: "normal",
@@ -22,7 +32,7 @@ const sans = localFont({
   fallback: ["Arial", "sans-serif"],
 });
 
-const mono = localFont({
+const plexMono = localFont({
   src: "./fonts/ibm-plex-mono-latin.woff2",
   weight: "500",
   style: "normal",
@@ -31,48 +41,33 @@ const mono = localFont({
   fallback: ["Consolas", "monospace"],
 });
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:8000";
-
 export const metadata: Metadata = {
   title: {
-    default: "Lumina — Cleaner Cars. Brighter Days.",
-    template: "%s | Lumina",
+    default: "Lumina — Car wash, simplified",
+    template: "%s · Lumina",
   },
   description:
-    "Compare verified car wash partners in Accra, see prices before you book, and choose a time that fits your day.",
-  metadataBase: new URL(siteUrl),
-  openGraph: {
-    title: "Lumina — Cleaner Cars. Brighter Days.",
-    description:
-      "Compare verified car wash partners in Accra and book a time that fits your day.",
-    images: ["/assets/logo-mark.png"],
-    type: "website",
-  },
+    "Compare trusted car wash partners in Accra, see prices before you book, and choose a time that fits your day.",
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#FAF8F2" },
-    { media: "(prefers-color-scheme: dark)", color: "#16140F" },
+    { media: "(prefers-color-scheme: dark)", color: "#100048" },
+    { media: "(prefers-color-scheme: light)", color: "#efeeff" },
   ],
 };
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode;
-}) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${display.variable} ${sans.variable} ${mono.variable}`}
+      className={`${fraunces.variable} ${plexSans.variable} ${plexMono.variable}`}
     >
-      <body className="font-sans antialiased">
-        <ThemeProvider>
-          <MotionProvider>{children}</MotionProvider>
-        </ThemeProvider>
+      <body className="min-h-dvh bg-background font-sans text-foreground antialiased">
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

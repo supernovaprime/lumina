@@ -4,13 +4,15 @@ import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 
-export function ThemeToggle() {
+import { cn } from "@/lib/utils";
+
+export function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
-  const isDark = mounted ? resolvedTheme === "dark" : false;
+  const isDark = mounted ? resolvedTheme === "dark" : true;
 
   return (
     <button
@@ -18,7 +20,10 @@ export function ThemeToggle() {
       aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
       aria-pressed={isDark}
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="inline-flex size-11 items-center justify-center rounded-full border border-white/60 bg-white/40 text-navy-800 shadow-[0_8px_24px_-16px_rgba(0,18,25,0.3)] backdrop-blur-xl transition-colors hover:bg-white/70 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/50 dark:border-white/10 dark:bg-white/[0.06] dark:text-teal-200 dark:hover:bg-white/10 dark:hover:text-teal-100 dark:focus-visible:ring-teal-300/50"
+      className={cn(
+        "inline-flex size-10 items-center justify-center rounded-full border border-border bg-surface/40 text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]",
+        className
+      )}
     >
       {mounted && isDark ? (
         <Sun aria-hidden="true" className="size-4" />
