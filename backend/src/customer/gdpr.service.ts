@@ -324,44 +324,56 @@ export class GdprService {
   async cleanupExpiredTokens(): Promise<{ deleted: number }> {
     const now = new Date();
 
-    const safeDelete = (promise: Promise<{ count: number }>): Promise<{ count: number }> =>
-      promise.catch((err) => {
-        this.logger.warn(`Cleanup skip: ${err.message?.slice(0, 120)}`);
+    // Run sequentially (not Promise.all): Supabase's transaction pooler can drop
+    // connections when several deletes race during a cold start, and retrying a
+    // transient "can't reach database server" error recovers without failing cron.
+    const safeDelete = async (
+      label: string,
+      fn: () => Promise<{ count: number }>,
+    ): Promise<{ count: number }> => {
+      try {
+        if (typeof this.prisma.retryOnTransientError === 'function') {
+          return await this.prisma.retryOnTransientError(fn, 4, 750);
+        }
+        return await fn();
+      } catch (err: any) {
+        this.logger.warn(`Cleanup skip (${label}): ${err?.message?.slice(0, 160)}`);
         return { count: 0 };
-      });
+      }
+    };
 
-    const [refreshTokens, verificationTokens, passwordResetTokens, gdprRequests] =
-      await Promise.all([
-        safeDelete(
-          this.prisma.refreshToken.deleteMany({
-            where: { expiresAt: { lt: now } },
-          }),
-        ),
-        safeDelete(
-          this.prisma.verificationToken.deleteMany({
-            where: {
-              expiresAt: { lt: now },
-              OR: [{ usedAt: { not: null } }, { createdAt: { lt: subDays(now, VERIFICATION_TOKEN_CLEANUP_DAYS) } }],
-            },
-          }),
-        ),
-        safeDelete(
-          this.prisma.passwordResetToken.deleteMany({
-            where: {
-              expiresAt: { lt: now },
-              OR: [{ usedAt: { not: null } }, { createdAt: { lt: subDays(now, VERIFICATION_TOKEN_CLEANUP_DAYS) } }],
-            },
-          }),
-        ),
-        safeDelete(
-          this.prisma.gdprRequest.deleteMany({
-            where: {
-              createdAt: { lt: subDays(now, GDPR_REQUEST_CLEANUP_DAYS) },
-              status: { in: ['COMPLETED', 'FAILED'] },
-            },
-          }),
-        ),
-      ]);
+    const refreshTokens = await safeDelete('refresh tokens', () =>
+      this.prisma.refreshToken.deleteMany({
+        where: { expiresAt: { lt: now } },
+      }),
+    );
+
+    const verificationTokens = await safeDelete('verification tokens', () =>
+      this.prisma.verificationToken.deleteMany({
+        where: {
+          expiresAt: { lt: now },
+          OR: [{ usedAt: { not: null } }, { createdAt: { lt: subDays(now, VERIFICATION_TOKEN_CLEANUP_DAYS) } }],
+        },
+      }),
+    );
+
+    const passwordResetTokens = await safeDelete('password reset tokens', () =>
+      this.prisma.passwordResetToken.deleteMany({
+        where: {
+          expiresAt: { lt: now },
+          OR: [{ usedAt: { not: null } }, { createdAt: { lt: subDays(now, VERIFICATION_TOKEN_CLEANUP_DAYS) } }],
+        },
+      }),
+    );
+
+    const gdprRequests = await safeDelete('gdpr requests', () =>
+      this.prisma.gdprRequest.deleteMany({
+        where: {
+          createdAt: { lt: subDays(now, GDPR_REQUEST_CLEANUP_DAYS) },
+          status: { in: ['COMPLETED', 'FAILED'] },
+        },
+      }),
+    );
 
     const total =
       refreshTokens.count + verificationTokens.count + passwordResetTokens.count + gdprRequests.count;

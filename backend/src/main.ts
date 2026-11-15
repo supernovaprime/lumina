@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe, Logger, LogLevel } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'node:crypto';
+import type { NextFunction, Request, Response } from 'express';
 // @ts-ignore - @nestjs/swagger types may not be installed
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as Sentry from '@sentry/nestjs';
@@ -56,17 +58,58 @@ async function bootstrap() {
   });
 
   const configService = app.get(ConfigService);
+
+  const logLevel = (configService.get<string>('LOG_LEVEL') || 'info').toLowerCase();
+  const loggerLevels: Record<string, LogLevel[]> = {
+    error: ['error'],
+    warn: ['error', 'warn'],
+    info: ['error', 'warn', 'log'],
+    debug: ['error', 'warn', 'log', 'debug'],
+    verbose: ['error', 'warn', 'log', 'debug', 'verbose'],
+  };
+  app.useLogger(loggerLevels[logLevel] ?? loggerLevels.info);
+  logger.log(`Log level: ${loggerLevels[logLevel] ? logLevel : 'info'}`);
+
   const port = configService.get<number>('PORT', 7000);
   const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
-  const corsOrigin = configService.get<string>('CORS_ORIGIN', 'http://localhost:3000');
+  const corsOrigin = configService.get<string>(
+    'CORS_ORIGIN',
+    'http://localhost:8000,http://localhost:3000',
+  );
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
+
+  // Request correlation for logs and error responses
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const incoming = req.headers['x-request-id'];
+    const requestId =
+      typeof incoming === 'string' && /^[\w.-]{1,128}$/.test(incoming)
+        ? incoming
+        : randomUUID();
+    req.headers['x-request-id'] = requestId;
+    res.setHeader('x-request-id', requestId);
+    next();
+  });
 
   // Security
   app.use(helmet());
 
   // CORS
+  const configuredOrigins = corsOrigin
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  // Local frontend dev servers should always work while developing, even if
+  // CORS_ORIGIN in .env was copied from an older example.
+  const devOrigins =
+    nodeEnv === 'development'
+      ? ['http://localhost:8000', 'http://localhost:3000']
+      : [];
+
+  const allowedOrigins = [...new Set([...configuredOrigins, ...devOrigins])];
+
   app.enableCors({
-    origin: corsOrigin,
+    origin: allowedOrigins,
     credentials: true,
   });
 

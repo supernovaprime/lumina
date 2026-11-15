@@ -17,7 +17,7 @@ export class AuthController {
   async register(@Body() body: {
     email: string;
     password: string;
-    role: 'CUSTOMER' | 'BUSINESS';
+    role?: 'CUSTOMER' | 'BUSINESS';
     firstName: string;
     lastName: string;
     phone?: string;
