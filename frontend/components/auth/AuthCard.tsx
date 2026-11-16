@@ -2,16 +2,18 @@
 
 import {
   useState,
+  type FormEvent,
   type InputHTMLAttributes,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
   Eye,
   EyeOff,
-  Info,
+  Loader2,
   LockKeyhole,
   Mail,
   Phone,
@@ -19,9 +21,12 @@ import {
   UserRound,
   type LucideIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { AuthArtSlideshow } from "@/components/auth/AuthArtSlideshow";
 import { buttonClass } from "@/components/ui/button";
+import { ApiError, login, registerCustomer, type UserRole } from "@/lib/api";
+import { markAdminWelcome, saveSession } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 type AuthMode = "login" | "signup";
@@ -30,6 +35,12 @@ const tabs: { id: AuthMode; label: string }[] = [
   { id: "login", label: "Log in" },
   { id: "signup", label: "Sign up" },
 ];
+
+const roleLabels: Record<UserRole, string> = {
+  CUSTOMER: "a customer",
+  BUSINESS: "a business",
+  ADMIN: "an admin",
+};
 
 export function AuthCard() {
   const [mode, setMode] = useState<AuthMode>("login");
@@ -157,18 +168,68 @@ export function AuthCard() {
 }
 
 function LoginForm({ onSwitch }: { onSwitch: () => void }) {
-  const [notice, setNotice] = useState<string | null>(null);
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (submitting) return;
+
+    const form = event.currentTarget;
+    const data = new FormData(form);
+
+    const email = String(data.get("email") ?? "").trim();
+    const password = String(data.get("password") ?? "");
+    const remember = data.get("remember") === "on";
+
+    if (!email || !password) {
+      toast.error("Sign in failed", {
+        description: "Enter your email address and password.",
+      });
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const result = await login({ email, password });
+
+      saveSession(
+        {
+          accessToken: result.accessToken,
+          user: result.user,
+          customer: result.customer,
+          business: result.business,
+        },
+        remember
+      );
+
+      toast.success("Signed in successfully!", {
+        description: `Welcome back. You're signed in as ${roleLabels[result.user.role] ?? "a Lumina user"}.`,
+      });
+
+      if (result.user.role === "ADMIN") {
+        markAdminWelcome();
+      }
+
+      form.reset();
+      router.push(result.user.role === "ADMIN" ? "/admin" : "/");
+      router.refresh();
+    } catch (error) {
+      const description =
+        error instanceof ApiError
+          ? error.message
+          : "Something went wrong while signing you in. Please try again.";
+
+      toast.error("Sign in failed", { description });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        setNotice(
-          "Preview only — sign-in will be connected to the database next."
-        );
-      }}
-      className="space-y-4"
-    >
+    <form onSubmit={handleSubmit} className="space-y-4">
       <AuthInput
         id="login-email"
         name="email"
@@ -201,7 +262,10 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
         <button
           type="button"
           onClick={() =>
-            setNotice("Password reset will be connected to email next.")
+            toast.info("Password reset is coming soon", {
+              description:
+                "We'll connect password reset to your email in the next step.",
+            })
           }
           className="text-caption font-medium text-sea-700 underline-offset-4 transition-colors hover:text-sea-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sea-500/60 dark:text-sea-300 dark:hover:text-paper dark:focus-visible:ring-sea-300/60"
         >
@@ -211,20 +275,28 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
 
       <button
         type="submit"
+        disabled={submitting}
         className={buttonClass({
           variant: "gradient",
           size: "lg",
-          className: "group mt-1 w-full rounded-2xl",
+          className: "group mt-1 w-full",
         })}
       >
-        Log in
-        <ArrowRight
-          aria-hidden="true"
-          className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
-        />
+        {submitting ? (
+          <>
+            <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+            Signing in…
+          </>
+        ) : (
+          <>
+            Log in
+            <ArrowRight
+              aria-hidden="true"
+              className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
+            />
+          </>
+        )}
       </button>
-
-      {notice && <FormNotice>{notice}</FormNotice>}
 
       <p className="pt-1 text-center text-caption text-muted-foreground dark:text-sky-300/70">
         New to Lumina?{" "}
@@ -241,18 +313,76 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
 }
 
 function SignUpForm({ onSwitch }: { onSwitch: () => void }) {
-  const [notice, setNotice] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (submitting) return;
+
+    const form = event.currentTarget;
+    const data = new FormData(form);
+
+    const fullName = String(data.get("name") ?? "").trim();
+    const email = String(data.get("email") ?? "").trim();
+    const phone = String(data.get("phone") ?? "").trim();
+    const password = String(data.get("password") ?? "");
+    const confirmPassword = String(data.get("confirmPassword") ?? "");
+
+    if (fullName.length < 2) {
+      toast.error("Account creation failed", {
+        description: "Please enter your full name.",
+      });
+      return;
+    }
+
+    if (password.length < 8) {
+      toast.error("Account creation failed", {
+        description: "Your password must be at least 8 characters long.",
+      });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast.error("Account creation failed", {
+        description: "The two passwords don't match. Please try again.",
+      });
+      return;
+    }
+
+    const [firstName, ...rest] = fullName.split(/\s+/);
+    const lastName = rest.join(" ");
+
+    setSubmitting(true);
+
+    try {
+      const result = await registerCustomer({
+        email,
+        password,
+        firstName,
+        lastName,
+        phone: phone || undefined,
+      });
+
+      toast.success("Account created successfully!", {
+        description: `Welcome to Lumina, ${firstName}. We've sent a verification email to ${result.email}.`,
+      });
+
+      form.reset();
+    } catch (error) {
+      const description =
+        error instanceof ApiError
+          ? error.message
+          : "Something went wrong while creating your account. Please try again.";
+
+      toast.error("Account creation failed", { description });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        setNotice(
-          "Preview only — account creation will be connected to the database next."
-        );
-      }}
-      className="space-y-4"
-    >
+    <form onSubmit={handleSubmit} className="space-y-4">
       <AuthInput
         id="signup-name"
         name="name"
@@ -319,20 +449,28 @@ function SignUpForm({ onSwitch }: { onSwitch: () => void }) {
 
       <button
         type="submit"
+        disabled={submitting}
         className={buttonClass({
           variant: "gradientOutline",
           size: "lg",
-          className: "group mt-1 w-full rounded-2xl",
+          className: "group mt-1 w-full",
         })}
       >
-        Create account
-        <ArrowRight
-          aria-hidden="true"
-          className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
-        />
+        {submitting ? (
+          <>
+            <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+            Creating account…
+          </>
+        ) : (
+          <>
+            Create account
+            <ArrowRight
+              aria-hidden="true"
+              className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
+            />
+          </>
+        )}
       </button>
-
-      {notice && <FormNotice>{notice}</FormNotice>}
 
       <p className="pt-1 text-center text-caption text-muted-foreground dark:text-sky-300/70">
         Already have an account?{" "}
@@ -447,21 +585,5 @@ function PasswordField({
         </button>
       }
     />
-  );
-}
-
-function FormNotice({ children }: { children: ReactNode }) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="flex items-start gap-2 rounded-2xl border border-sea-500/20 bg-sea-500/10 px-4 py-3 text-caption text-sea-800 dark:border-sky-300/20 dark:bg-sky-300/10 dark:text-sky-200"
-    >
-      <Info
-        aria-hidden="true"
-        className="mt-0.5 size-4 shrink-0 text-sea-600 dark:text-sky-300"
-      />
-      <span>{children}</span>
-    </div>
   );
 }

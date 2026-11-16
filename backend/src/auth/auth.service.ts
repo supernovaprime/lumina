@@ -21,11 +21,13 @@ export class AuthService {
   async register(dto: {
     email: string;
     password: string;
-    role: 'CUSTOMER' | 'BUSINESS';
+    role?: 'CUSTOMER' | 'BUSINESS';
     firstName: string;
     lastName: string;
     phone?: string;
   }) {
+    const role = dto.role ?? 'CUSTOMER';
+
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
@@ -41,12 +43,12 @@ export class AuthService {
         data: {
           email: dto.email.toLowerCase(),
           passwordHash,
-          role: dto.role,
+          role,
           isActive: true,
         },
       });
 
-      if (dto.role === 'CUSTOMER') {
+      if (role === 'CUSTOMER') {
         await tx.customer.create({
           data: {
             userId: newUser.id,

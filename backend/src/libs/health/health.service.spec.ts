@@ -9,6 +9,7 @@ describe('HealthService', () => {
 
   const mockPrisma = {
     $queryRawUnsafe: jest.fn(),
+    retryOnTransientError: jest.fn((fn: () => Promise<unknown>) => fn()),
   };
 
   const mockRedis = {

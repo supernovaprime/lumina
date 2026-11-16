@@ -247,6 +247,18 @@ body {
   background-position: 100% 50%;
 }
 
+/* Dark theme: gradient buttons blend the primary and secondary palette */
+.dark .gradient-button {
+  background-image: linear-gradient(
+    90deg,
+    var(--primary),
+    var(--accent),
+    var(--primary),
+    var(--accent),
+    var(--primary)
+  );
+}
+
 .gradient-outline {
   position: relative;
   isolation: isolate;
@@ -283,6 +295,152 @@ body {
 
 .gradient-outline:hover::before {
   background-position: 100% 50%;
+}
+
+/* Dark theme: the outline ring mirrors the primary + secondary gradient */
+.dark .gradient-outline::before {
+  background-image: linear-gradient(
+    90deg,
+    var(--primary),
+    var(--accent),
+    var(--primary),
+    var(--accent),
+    var(--primary)
+  );
+}
+
+/* ---------- Password fields: hide the browser's native reveal control ---------- */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
+/* ---------- Toast notifications ---------- */
+.lumina-toast {
+  border-radius: 1rem !important;
+  border: 1px solid transparent !important;
+  background-size: 180% 180% !important;
+  background-position: 0% 0% !important;
+  color: var(--foreground) !important;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 22px 48px -28px rgba(4, 28, 40, 0.5) !important;
+}
+
+.lumina-toast [data-title] {
+  font-weight: 600 !important;
+  letter-spacing: -0.01em;
+}
+
+.lumina-toast [data-description] {
+  color: var(--muted-foreground) !important;
+}
+
+.lumina-toast [data-icon] {
+  flex-shrink: 0;
+}
+
+/* Light mode — a soft white gradient tinted with the status colour */
+.lumina-toast[data-type="success"] {
+  background-color: #ffffff !important;
+  background-image: linear-gradient(135deg, #ffffff 0%, rgba(4, 120, 87, 0.18) 100%) !important;
+  border-color: rgba(4, 120, 87, 0.3) !important;
+}
+
+.lumina-toast[data-type="success"] [data-icon] {
+  color: var(--color-green-700) !important;
+}
+
+.lumina-toast[data-type="error"] {
+  background-color: #ffffff !important;
+  background-image: linear-gradient(135deg, #ffffff 0%, rgba(185, 28, 28, 0.16) 100%) !important;
+  border-color: rgba(185, 28, 28, 0.28) !important;
+}
+
+.lumina-toast[data-type="error"] [data-icon] {
+  color: var(--color-red-700) !important;
+}
+
+.lumina-toast[data-type="warning"] {
+  background-color: #ffffff !important;
+  background-image: linear-gradient(135deg, #ffffff 0%, rgba(180, 83, 9, 0.18) 100%) !important;
+  border-color: rgba(180, 83, 9, 0.3) !important;
+}
+
+.lumina-toast[data-type="warning"] [data-icon] {
+  color: #b45309 !important;
+}
+
+.lumina-toast[data-type="info"] {
+  background-color: #ffffff !important;
+  background-image: linear-gradient(135deg, #ffffff 0%, rgba(2, 132, 199, 0.16) 100%) !important;
+  border-color: rgba(2, 132, 199, 0.28) !important;
+}
+
+.lumina-toast[data-type="info"] [data-icon] {
+  color: var(--color-sky-700) !important;
+}
+
+/* Dark mode — the status colour melting into the secondary (sky) colour */
+.dark .lumina-toast {
+  color: var(--color-paper) !important;
+  box-shadow: 0 24px 54px -30px rgba(0, 0, 0, 0.85) !important;
+}
+
+.dark .lumina-toast [data-description] {
+  color: rgba(220, 242, 255, 0.75) !important;
+}
+
+.dark .lumina-toast[data-type="success"] {
+  background-color: #041c28 !important;
+  background-image: linear-gradient(135deg, rgba(4, 120, 87, 0.62) 0%, rgba(56, 189, 248, 0.3) 100%) !important;
+  border-color: rgba(110, 231, 183, 0.4) !important;
+}
+
+.dark .lumina-toast[data-type="success"] [data-icon] {
+  color: var(--color-green-300) !important;
+}
+
+.dark .lumina-toast[data-type="error"] {
+  background-color: #041c28 !important;
+  background-image: linear-gradient(135deg, rgba(153, 27, 27, 0.62) 0%, rgba(56, 189, 248, 0.26) 100%) !important;
+  border-color: rgba(252, 165, 165, 0.4) !important;
+}
+
+.dark .lumina-toast[data-type="error"] [data-icon] {
+  color: var(--color-red-300) !important;
+}
+
+.dark .lumina-toast[data-type="warning"] {
+  background-color: #041c28 !important;
+  background-image: linear-gradient(135deg, rgba(146, 64, 14, 0.62) 0%, rgba(56, 189, 248, 0.26) 100%) !important;
+  border-color: rgba(253, 230, 138, 0.45) !important;
+}
+
+.dark .lumina-toast[data-type="warning"] [data-icon] {
+  color: #fde68a !important;
+}
+
+.dark .lumina-toast[data-type="info"] {
+  background-color: #041c28 !important;
+  background-image: linear-gradient(135deg, rgba(3, 105, 161, 0.62) 0%, rgba(56, 189, 248, 0.34) 100%) !important;
+  border-color: rgba(125, 212, 255, 0.45) !important;
+}
+
+.dark .lumina-toast[data-type="info"] [data-icon] {
+  color: var(--color-sky-300) !important;
+}
+
+/* Toast close button tuning */
+.lumina-toast [data-close-button] {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border-color: rgba(4, 28, 40, 0.08) !important;
+  color: var(--foreground) !important;
+}
+
+.dark .lumina-toast [data-close-button] {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: var(--color-paper) !important;
 }
 
 .header-gradient-ring::after {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Pause, Play, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -26,19 +26,18 @@ const slides = [
 
 export function AuthArtSlideshow() {
   const [active, setActive] = useState(0);
-  const [paused, setPaused] = useState(false);
   const reduceMotion = useReducedMotion();
   const slide = slides[active];
 
   useEffect(() => {
-    if (paused || reduceMotion) return;
+    if (reduceMotion) return;
 
     const timer = window.setInterval(() => {
       setActive((current) => (current + 1) % slides.length);
     }, 5200);
 
     return () => window.clearInterval(timer);
-  }, [paused, reduceMotion]);
+  }, [reduceMotion]);
 
   return (
     <div className="relative flex h-full min-h-[20rem] flex-col overflow-hidden bg-gradient-to-br from-sea-100 via-sky-50 to-sea-200 p-5 sm:min-h-[25rem] sm:p-8 lg:min-h-[38rem] lg:p-10 dark:from-sea-900 dark:via-sea-950 dark:to-sea-900">
@@ -110,7 +109,7 @@ export function AuthArtSlideshow() {
         </AnimatePresence>
       </div>
 
-      <div className="relative z-10 flex items-center justify-between gap-4">
+      <div className="relative z-10 flex items-center justify-start gap-4">
         <div
           aria-label="Choose a slide"
           className="flex items-center gap-2"
@@ -122,10 +121,7 @@ export function AuthArtSlideshow() {
               type="button"
               aria-label={`Show slide ${index + 1}: ${item.title}`}
               aria-pressed={active === index}
-              onClick={() => {
-                setActive(index);
-                setPaused(true);
-              }}
+              onClick={() => setActive(index)}
               className={cn(
                 "h-2 rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sea-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-sea-50 dark:focus-visible:ring-sea-300/60 dark:focus-visible:ring-offset-sea-950",
                 active === index
@@ -135,22 +131,6 @@ export function AuthArtSlideshow() {
             />
           ))}
         </div>
-
-        {!reduceMotion && (
-          <button
-            type="button"
-            onClick={() => setPaused((current) => !current)}
-            aria-label={paused ? "Resume slideshow" : "Pause slideshow"}
-            className="inline-flex items-center gap-1.5 rounded-full border border-sea-900/10 bg-white/45 px-2.5 py-1.5 text-caption font-medium text-sea-800 transition-colors hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sea-500/60 dark:border-white/10 dark:bg-white/[0.06] dark:text-sky-200 dark:hover:bg-white/10"
-          >
-            {paused ? (
-              <Play aria-hidden="true" className="size-3" />
-            ) : (
-              <Pause aria-hidden="true" className="size-3" />
-            )}
-            {paused ? "Play" : "Pause"}
-          </button>
-        )}
       </div>
     </div>
   );
