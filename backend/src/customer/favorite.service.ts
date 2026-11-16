@@ -8,6 +8,7 @@ export class FavoriteService {
   async findAll(customerId: string) {
     const favorites = await this.prisma.favorite.findMany({
       where: { customerId },
+      relationLoadStrategy: 'join',
       include: {
         business: {
           select: {
@@ -27,28 +28,49 @@ export class FavoriteService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const enriched = await Promise.all(
-      favorites.map(async (fav) => {
-        const nextSlot = await this.prisma.timeSlot.findFirst({
+    const businessIds = favorites.map((favorite) => favorite.businessId);
+    const nextSlots = businessIds.length
+      ? await this.prisma.timeSlot.findMany({
           where: {
-            businessId: fav.businessId,
+            businessId: { in: businessIds },
             date: { gte: today },
             isAvailable: true,
             currentBookings: { lt: 10 },
           },
-          orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
-        });
+          select: {
+            businessId: true,
+            date: true,
+            startTime: true,
+            endTime: true,
+          },
+          orderBy: [
+            { businessId: 'asc' },
+            { date: 'asc' },
+            { startTime: 'asc' },
+          ],
+        })
+      : [];
 
-        return {
-          ...fav,
-          nextAvailableSlot: nextSlot
-            ? { date: nextSlot.date, startTime: nextSlot.startTime, endTime: nextSlot.endTime }
-            : null,
-        };
-      }),
-    );
+    const nextSlotByBusiness = new Map<string, (typeof nextSlots)[number]>();
+    for (const slot of nextSlots) {
+      if (!nextSlotByBusiness.has(slot.businessId)) {
+        nextSlotByBusiness.set(slot.businessId, slot);
+      }
+    }
 
-    return enriched;
+    return favorites.map((favorite) => {
+      const nextSlot = nextSlotByBusiness.get(favorite.businessId);
+      return {
+        ...favorite,
+        nextAvailableSlot: nextSlot
+          ? {
+              date: nextSlot.date,
+              startTime: nextSlot.startTime,
+              endTime: nextSlot.endTime,
+            }
+          : null,
+      };
+    });
   }
 
   async add(customerId: string, businessId: string) {

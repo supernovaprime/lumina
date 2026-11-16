@@ -1,8 +1,8 @@
-# Lumina Admin Console — Feature Scaffold
+# Lumina Admin Console
 
-Status: **Phase 1 shipped** (admin shell + dashboard). Every other admin route is
-registered, guarded, navigable, and documented here, but intentionally left as a
-feature scaffold.
+Status: **Phase 2 shipped** (admin shell, dashboard, users, businesses). Remaining
+admin routes are registered, guarded, navigable, and documented here, but
+intentionally left as feature scaffolds.
 
 Sources of truth, in priority order:
 
@@ -163,6 +163,11 @@ frontend/components/dashboard/
   admin-nav.ts               nav sections + toolkit metadata
   MetricCard.tsx             glass metric tile
   AdminFeaturePage.tsx       scaffold template for planned routes
+  UsersManager.tsx           searchable account directory
+  UserProfile.tsx            account profile and activity
+  UserStatusDialog.tsx       activate/suspend confirmation
+  UserBadges.tsx             shared role, status, avatar treatments
+  user-utils.ts              formatting and display helpers
 ```
 
 `frontend/lib/api.ts` holds every admin type and request function. Pages must not
@@ -173,10 +178,10 @@ call `fetch` directly.
 | Route | Purpose | Status | Backend |
 | --- | --- | --- | --- |
 | `/admin` | Welcome dashboard, 5 live metrics, queue summary, quick actions | Implemented | `GET /admin/dashboard` |
-| `/admin/users` | Search, filter, paginate accounts | Scaffold | `GET /admin/users` |
-| `/admin/users/[id]` | Account profile + activate/deactivate | Scaffold | `GET /admin/users/:id` |
-| `/admin/businesses` | Verification and partner list | Scaffold | `GET /admin/businesses` |
-| `/admin/businesses/[id]` | Partner profile + verify/deactivate | Scaffold | `GET /admin/businesses/:id` |
+| `/admin/users` | Search, filter, paginate accounts | Implemented | `GET /admin/users` |
+| `/admin/users/[id]` | Account profile + activate/deactivate | Implemented | `GET /admin/users/:id` |
+| `/admin/businesses` | Verification and partner list | Implemented | `GET /admin/businesses` |
+| `/admin/businesses/[id]` | Partner profile + verify/deactivate | Implemented | `GET /admin/businesses/:id` |
 | `/admin/bookings` | Platform booking ledger | Scaffold | `GET /admin/bookings` |
 | `/admin/bookings/[id]` | Booking timeline + cancel | Scaffold | `GET /admin/bookings/:id` |
 | `/admin/reviews` | Moderation queue | Scaffold | `GET /admin/reviews` |
@@ -250,27 +255,35 @@ move the access token to an httpOnly cookie first.
 Acceptance: `/admin` loads for an ADMIN, redirects non-admins, survives a stopped
 backend with a readable error + retry, and is usable at 360 px and 1440 px.
 
-### 6.2 User management
+### 6.2 User management — implemented
 
-- List: debounced `q` search, role chips, sortable columns, pagination, status
-  badges, "Open" link.
-- Detail: identity, customer block (vehicles, recent bookings, reviews,
-  favourites), business block (services, bookings, reviews), activity timestamps.
-- Deactivate: confirm dialog with optional reason; expect sessions revoked and
-  future bookings cancelled.
-- Reactivate: single PUT; no reason needed.
-- Do not build edit-role or delete-account UI — the backend has neither.
+- List (`/admin/users`): debounced name/email/business search, role chips,
+  server-backed sorting, responsive table/cards, pagination, live status badges,
+  and an "Open profile" link.
+- Detail (`/admin/users/:id`): identity, role and verification state, customer
+  stats with vehicles and recent bookings, business stats with services, and
+  activity timestamps.
+- Deactivate: confirmation dialog with optional reason; revokes sessions and
+  cancels future bookings. Reactivate: single PUT confirmation.
+- Account status cannot be changed from the signed-in admin's own row or
+  profile. There is no edit-role or delete-account UI.
 
-### 6.3 Business management
+### 6.3 Business management — implemented
 
-- List: default focus on `status=PENDING` from the dashboard CTA; search, active
-  filter, verification badge, rating, owner email.
-- Detail: identity/contact, location, services, booking/review counts, lifetime
-  revenue.
+- List (`/admin/businesses`): opens on `status=PENDING` when linked from the
+  dashboard; debounced name/city/owner-email search, verification chips, listing
+  state filter, responsive table/cards, pagination, rating, owner email, and a
+  deactivate confirmation for live partners.
+- Detail (`/admin/businesses/:id`): identity and contact, location with an
+  OpenStreetMap link, owner account link, service catalogue, booking/review
+  counts, lifetime revenue, and verification/moderation state.
 - Verify: APPROVE/REJECT; reason required for REJECT in the UI even though the DTO
-  makes it optional.
-- Deactivate: reason optional, but always send one for the audit trail.
-- Do not build a reactivation control; no endpoint exists.
+  makes it optional. Approval marks the business verified and emails the partner.
+- Deactivate: reason optional, but always send one for the audit trail. Existing
+  services, bookings, reviews, and records are preserved.
+- There is no reactivation control; the backend has no endpoint for it yet.
+- Lists and details use short-lived in-memory caching plus hover/focus prefetching;
+  mutations invalidate the cache before revalidation.
 
 ### 6.4 Booking management
 
@@ -338,7 +351,7 @@ backend with a readable error + retry, and is usable at 360 px and 1440 px.
 | Phase | Work | Status |
 | --- | --- | --- |
 | 1 | Shell, guard, dashboard, nav, error/loading routes | Done |
-| 2 | Users list/detail + businesses list/detail (verification queue first) | Scaffolded |
+| 2 | Users list/detail + businesses list/detail (verification queue first) | Done |
 | 3 | Bookings list/detail + cancellations + reviews moderation | Scaffolded |
 | 4 | Reports form/status/download + audit ledger | Scaffolded |
 | 5 | Empty/loading/error polish, mobile tables, a11y pass, manual E2E | Pending |

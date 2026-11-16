@@ -17,13 +17,23 @@ export class SlotGeneratorService {
 
     const weekly = template.weekly as Record<string, string[][]>;
     const today = new Date();
-    let created = 0;
+    const slotsToCreate: Array<{
+      businessId: string;
+      date: Date;
+      startTime: string;
+      endTime: string;
+      maxBookings: number;
+      currentBookings: number;
+      isAvailable: boolean;
+    }> = [];
 
     for (let i = 0; i < horizonDays; i++) {
       const date = new Date(today);
       date.setDate(date.getDate() + i);
 
-      const dayKey = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][date.getDay()];
+      const dayKey = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][
+        date.getDay()
+      ];
       const windows = weekly[dayKey] || [];
 
       const dateStr = date.toISOString().split('T')[0];
@@ -31,44 +41,37 @@ export class SlotGeneratorService {
 
       for (const [start, end] of windows) {
         const slots = this.generateSlotsFromWindow(
-          start, end,
+          start,
+          end,
           template.slotLengthMinutes,
           template.bufferMinutes,
           template.maxParallel,
         );
 
         for (const slot of slots) {
-          const existing = await this.prisma.timeSlot.findUnique({
-            where: {
-              businessId_date_startTime: {
-                businessId,
-                date,
-                startTime: slot.startTime,
-              },
-            },
+          slotsToCreate.push({
+            businessId,
+            date,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            maxBookings: template.maxParallel,
+            currentBookings: 0,
+            isAvailable: true,
           });
-
-          if (!existing) {
-            await this.prisma.timeSlot.create({
-              data: {
-                businessId,
-                date,
-                startTime: slot.startTime,
-                endTime: slot.endTime,
-                maxBookings: template.maxParallel,
-                currentBookings: 0,
-                isAvailable: true,
-              },
-            });
-            created++;
-          }
         }
       }
     }
 
+    const result = slotsToCreate.length
+      ? await this.prisma.timeSlot.createMany({
+          data: slotsToCreate,
+          skipDuplicates: true,
+        })
+      : { count: 0 };
+
     await this.cache.invalidate(`slots:${businessId}:*`);
 
-    return { created, horizonDays };
+    return { created: result.count, horizonDays };
   }
 
   generateSlotsFromWindow(

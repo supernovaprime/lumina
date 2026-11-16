@@ -15,7 +15,16 @@ export class AdminBookingService {
   ) {}
 
   async listBookings(dto: ListBookingsDto) {
-    const { date, status, businessId, customerId, from, to, page = 1, limit = 20 } = dto;
+    const {
+      date,
+      status,
+      businessId,
+      customerId,
+      from,
+      to,
+      page = 1,
+      limit = 20,
+    } = dto;
 
     const where: any = {};
     if (date) where.date = new Date(date);
@@ -31,8 +40,11 @@ export class AdminBookingService {
     const [bookings, total] = await Promise.all([
       this.prisma.booking.findMany({
         where,
+        relationLoadStrategy: 'join',
         include: {
-          customer: { select: { firstName: true, lastName: true, phone: true } },
+          customer: {
+            select: { firstName: true, lastName: true, phone: true },
+          },
           business: { select: { name: true, city: true } },
           service: { select: { name: true, basePrice: true } },
           vehicle: { select: { make: true, model: true, licensePlate: true } },
@@ -54,9 +66,16 @@ export class AdminBookingService {
   async getBookingDetail(id: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { id },
+      relationLoadStrategy: 'join',
       include: {
         customer: { include: { user: { select: { email: true } } } },
-        business: { select: { name: true, city: true, owner: { select: { email: true } } } },
+        business: {
+          select: {
+            name: true,
+            city: true,
+            owner: { select: { email: true } },
+          },
+        },
         service: true,
         vehicle: true,
         payment: true,
@@ -113,6 +132,12 @@ export class AdminBookingService {
 
     await this.cache.invalidate(`slots:${booking.businessId}:*`);
 
-    return { data: { id: cancelled.id, status: cancelled.status, message: 'Booking cancelled' } };
+    return {
+      data: {
+        id: cancelled.id,
+        status: cancelled.status,
+        message: 'Booking cancelled',
+      },
+    };
   }
 }

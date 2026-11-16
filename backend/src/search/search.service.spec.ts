@@ -16,7 +16,7 @@ describe('SearchService', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       timeSlot: {
-        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
       },
     };
 
@@ -27,7 +27,9 @@ describe('SearchService', () => {
     };
 
     geo = {
-      findNearby: jest.fn().mockResolvedValue({ businesses: [], nextCursor: undefined }),
+      findNearby: jest
+        .fn()
+        .mockResolvedValue({ businesses: [], nextCursor: undefined }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -46,7 +48,10 @@ describe('SearchService', () => {
 
   describe('search', () => {
     it('returns cached result when available', async () => {
-      const cached = { businesses: [{ id: 'b1' }], meta: { hasMore: false, limit: 20 } };
+      const cached = {
+        businesses: [{ id: 'b1' }],
+        meta: { hasMore: false, limit: 20 },
+      };
       cache.get.mockResolvedValue(cached);
 
       const result = await service.search({ query: 'test' });
@@ -61,8 +66,12 @@ describe('SearchService', () => {
         nextCursor: undefined,
       });
 
-      const result = await service.search({ lat: 40.7128, lng: -74.0060, radiusKm: 5 });
-      expect(geo.findNearby).toHaveBeenCalledWith(40.7128, -74.0060, 5, {
+      const result = await service.search({
+        lat: 40.7128,
+        lng: -74.006,
+        radiusKm: 5,
+      });
+      expect(geo.findNearby).toHaveBeenCalledWith(40.7128, -74.006, 5, {
         limit: 100,
         cursor: undefined,
         isVerified: true,
@@ -94,15 +103,25 @@ describe('SearchService', () => {
     it('filters by service category', async () => {
       geo.findNearby.mockResolvedValue({
         businesses: [
-          { id: 'b1', name: 'Wash', services: [{ category: 'EXTERIOR', isActive: true }], rating: 4 },
-          { id: 'b2', name: 'Detail', services: [{ category: 'INTERIOR', isActive: true }], rating: 4 },
+          {
+            id: 'b1',
+            name: 'Wash',
+            services: [{ category: 'EXTERIOR', isActive: true }],
+            rating: 4,
+          },
+          {
+            id: 'b2',
+            name: 'Detail',
+            services: [{ category: 'INTERIOR', isActive: true }],
+            rating: 4,
+          },
         ],
         nextCursor: undefined,
       });
 
       const result = await service.search({
         lat: 40.7128,
-        lng: -74.0060,
+        lng: -74.006,
         service: 'EXTERIOR',
       });
       expect(result.businesses).toHaveLength(1);
@@ -120,7 +139,7 @@ describe('SearchService', () => {
 
       const result = await service.search({
         lat: 40.7128,
-        lng: -74.0060,
+        lng: -74.006,
         minRating: 4,
       });
       expect(result.businesses).toHaveLength(1);
@@ -138,7 +157,7 @@ describe('SearchService', () => {
 
       const result = await service.search({
         lat: 40.7128,
-        lng: -74.0060,
+        lng: -74.006,
         sort: 'rating',
       });
       expect(result.businesses[0].id).toBe('b2');
@@ -148,7 +167,12 @@ describe('SearchService', () => {
     it('sorts by price when sort=price', async () => {
       geo.findNearby.mockResolvedValue({
         businesses: [
-          { id: 'b1', name: 'Expensive', startingPriceCents: 5000, services: [] },
+          {
+            id: 'b1',
+            name: 'Expensive',
+            startingPriceCents: 5000,
+            services: [],
+          },
           { id: 'b2', name: 'Cheap', startingPriceCents: 2000, services: [] },
         ],
         nextCursor: undefined,
@@ -156,7 +180,7 @@ describe('SearchService', () => {
 
       const result = await service.search({
         lat: 40.7128,
-        lng: -74.0060,
+        lng: -74.006,
         sort: 'price',
       });
       expect(result.businesses[0].id).toBe('b2');
@@ -174,7 +198,7 @@ describe('SearchService', () => {
 
       const result = await service.search({
         lat: 40.7128,
-        lng: -74.0060,
+        lng: -74.006,
         limit: 10,
       });
       expect(result.businesses).toHaveLength(10);
@@ -184,15 +208,18 @@ describe('SearchService', () => {
     });
 
     it('passes cursor to geo.findNearby', async () => {
-      geo.findNearby.mockResolvedValue({ businesses: [], nextCursor: undefined });
+      geo.findNearby.mockResolvedValue({
+        businesses: [],
+        nextCursor: undefined,
+      });
 
       await service.search({
         lat: 40.7128,
-        lng: -74.0060,
+        lng: -74.006,
         cursor: 'b010',
       });
 
-      expect(geo.findNearby).toHaveBeenCalledWith(40.7128, -74.0060, 10, {
+      expect(geo.findNearby).toHaveBeenCalledWith(40.7128, -74.006, 10, {
         limit: 100,
         cursor: 'b010',
         isVerified: true,
@@ -200,9 +227,12 @@ describe('SearchService', () => {
     });
 
     it('caches the result', async () => {
-      geo.findNearby.mockResolvedValue({ businesses: [], nextCursor: undefined });
+      geo.findNearby.mockResolvedValue({
+        businesses: [],
+        nextCursor: undefined,
+      });
 
-      await service.search({ lat: 40.7128, lng: -74.0060 });
+      await service.search({ lat: 40.7128, lng: -74.006 });
 
       expect(cache.set).toHaveBeenCalledWith(
         expect.any(String),
@@ -212,9 +242,12 @@ describe('SearchService', () => {
     });
 
     it('returns correct meta structure', async () => {
-      geo.findNearby.mockResolvedValue({ businesses: [], nextCursor: undefined });
+      geo.findNearby.mockResolvedValue({
+        businesses: [],
+        nextCursor: undefined,
+      });
 
-      const result = await service.search({ lat: 40.7128, lng: -74.0060 });
+      const result = await service.search({ lat: 40.7128, lng: -74.006 });
       expect(result).toHaveProperty('businesses');
       expect(result).toHaveProperty('meta');
       expect(result.meta).toHaveProperty('hasMore');
@@ -223,21 +256,40 @@ describe('SearchService', () => {
 
     it('filters by openNow based on operatingHours', async () => {
       const now = new Date();
-      const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+      const dayOfWeek = now
+        .toLocaleDateString('en-US', { weekday: 'long' })
+        .toUpperCase();
       const currentHour = String(now.getHours()).padStart(2, '0');
-      const closeHour = String(Math.min(now.getHours() + 2, 23)).padStart(2, '0');
+      const closeHour = String(Math.min(now.getHours() + 2, 23)).padStart(
+        2,
+        '0',
+      );
 
       geo.findNearby.mockResolvedValue({
         businesses: [
-          { id: 'b1', name: 'Open Wash', rating: 4, services: [], operatingHours: { [dayOfWeek]: { open: '00:00', close: `${closeHour}:00` } } },
-          { id: 'b2', name: 'Closed Wash', rating: 4, services: [], operatingHours: { [dayOfWeek]: { open: '23:00', close: '23:59' } } },
+          {
+            id: 'b1',
+            name: 'Open Wash',
+            rating: 4,
+            services: [],
+            operatingHours: {
+              [dayOfWeek]: { open: '00:00', close: `${closeHour}:00` },
+            },
+          },
+          {
+            id: 'b2',
+            name: 'Closed Wash',
+            rating: 4,
+            services: [],
+            operatingHours: { [dayOfWeek]: { open: '23:00', close: '23:59' } },
+          },
         ],
         nextCursor: undefined,
       });
 
       const result = await service.search({
         lat: 40.7128,
-        lng: -74.0060,
+        lng: -74.006,
         openNow: true,
       });
       expect(result.businesses.length).toBeGreaterThanOrEqual(1);
@@ -253,14 +305,16 @@ describe('SearchService', () => {
         businesses: [{ id: 'b1', name: 'Wash', rating: 4, services: [] }],
         nextCursor: undefined,
       });
-      prisma.timeSlot.findFirst.mockResolvedValue({
-        businessId: 'b1',
-        date: futureDate,
-        startTime: '09:00',
-        endTime: '09:30',
-      });
+      prisma.timeSlot.findMany.mockResolvedValue([
+        {
+          businessId: 'b1',
+          date: futureDate,
+          startTime: '09:00',
+          endTime: '09:30',
+        },
+      ]);
 
-      const result = await service.search({ lat: 40.7128, lng: -74.0060 });
+      const result = await service.search({ lat: 40.7128, lng: -74.006 });
       expect(result.businesses[0].nextAvailableSlot).toBeDefined();
       expect(result.businesses[0].nextAvailableSlot.startTime).toBe('09:00');
     });
@@ -270,9 +324,9 @@ describe('SearchService', () => {
         businesses: [{ id: 'b1', name: 'Wash', rating: 4, services: [] }],
         nextCursor: undefined,
       });
-      prisma.timeSlot.findFirst.mockResolvedValue(null);
+      prisma.timeSlot.findMany.mockResolvedValue([]);
 
-      const result = await service.search({ lat: 40.7128, lng: -74.0060 });
+      const result = await service.search({ lat: 40.7128, lng: -74.006 });
       expect(result.businesses[0].nextAvailableSlot).toBeNull();
     });
 
@@ -291,8 +345,12 @@ describe('SearchService', () => {
 
       const call = prisma.business.findMany.mock.calls[0][0];
       expect(call.where.OR).toHaveLength(4);
-      expect(call.where.OR[0]).toEqual({ name: { contains: 'quick', mode: 'insensitive' } });
-      expect(call.where.OR[1]).toEqual({ city: { contains: 'quick', mode: 'insensitive' } });
+      expect(call.where.OR[0]).toEqual({
+        name: { contains: 'quick', mode: 'insensitive' },
+      });
+      expect(call.where.OR[1]).toEqual({
+        city: { contains: 'quick', mode: 'insensitive' },
+      });
     });
 
     it('applies cursor to text search', async () => {

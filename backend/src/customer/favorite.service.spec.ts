@@ -14,7 +14,7 @@ describe('FavoriteService', () => {
         deleteMany: jest.fn(),
       },
       timeSlot: {
-        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
       },
     };
 
@@ -32,26 +32,30 @@ describe('FavoriteService', () => {
 
   describe('findAll', () => {
     it('should return all favorites with business info and nextAvailableSlot', async () => {
-      const favorites = [{
-        id: 'f1',
-        businessId: 'b1',
-        business: { id: 'b1', name: 'Quick Wash', rating: 4.5 },
-      }];
+      const favorites = [
+        {
+          id: 'f1',
+          businessId: 'b1',
+          business: { id: 'b1', name: 'Quick Wash', rating: 4.5 },
+        },
+      ];
       prisma.favorite.findMany.mockResolvedValue(favorites);
 
       const result = await service.findAll('c1');
 
       expect(result).toHaveLength(1);
       expect(result[0]).toHaveProperty('nextAvailableSlot');
-      expect(prisma.favorite.findMany).toHaveBeenCalledWith({
-        where: { customerId: 'c1' },
-        include: expect.objectContaining({
-          business: expect.objectContaining({
-            select: expect.objectContaining({ name: true, rating: true }),
+      expect(prisma.favorite.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { customerId: 'c1' },
+          include: expect.objectContaining({
+            business: expect.objectContaining({
+              select: expect.objectContaining({ name: true, rating: true }),
+            }),
           }),
+          orderBy: { createdAt: 'desc' },
         }),
-        orderBy: { createdAt: 'desc' },
-      });
+      );
     });
   });
 
@@ -66,14 +70,20 @@ describe('FavoriteService', () => {
 
       const result = await service.add('c1', 'b1');
 
-      expect(result).toEqual(expect.objectContaining({
-        id: 'f1',
-        customerId: 'c1',
-        businessId: 'b1',
-      }));
-      expect(prisma.favorite.upsert).toHaveBeenCalledWith(expect.objectContaining({
-        where: { customerId_businessId: { customerId: 'c1', businessId: 'b1' } },
-      }));
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: 'f1',
+          customerId: 'c1',
+          businessId: 'b1',
+        }),
+      );
+      expect(prisma.favorite.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            customerId_businessId: { customerId: 'c1', businessId: 'b1' },
+          },
+        }),
+      );
     });
 
     it('should be idempotent (no error if already favorited)', async () => {

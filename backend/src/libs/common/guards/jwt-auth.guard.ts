@@ -1,4 +1,8 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
+import {
+  Injectable,
+  ExecutionContext,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 
 @Injectable()
@@ -8,9 +12,18 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   }
 
   handleRequest(err: any, user: any, info: any) {
-    if (err || !user) {
-      throw err || new Error('Unauthorized');
+    if (err instanceof UnauthorizedException) {
+      throw err;
     }
+
+    if (err || !user) {
+      throw new UnauthorizedException(
+        info?.name === 'TokenExpiredError'
+          ? 'Session expired. Please sign in again.'
+          : 'Unauthorized',
+      );
+    }
+
     return user;
   }
 }

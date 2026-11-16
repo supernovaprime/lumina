@@ -17,22 +17,29 @@ export class SlotReconcilerService {
 
     const weekly = template.weekly as Record<string, string[][]>;
     const today = new Date();
-    let deleted = 0;
-    let orphaned = 0;
+    today.setHours(0, 0, 0, 0);
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + 29);
+    endDate.setHours(23, 59, 59, 999);
+
+    const allowedByDate = new Map<string, Set<string>>();
 
     for (let i = 0; i < 30; i++) {
       const date = new Date(today);
       date.setDate(date.getDate() + i);
 
-      const dayKey = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][date.getDay()];
+      const dayKey = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][
+        date.getDay()
+      ];
       const windows = weekly[dayKey] || [];
       const dateStr = date.toISOString().split('T')[0];
-
       const allowedStartTimes = new Set<string>();
+
       if (!template.blackouts.includes(dateStr)) {
         for (const [start, end] of windows) {
           const slots = this.generateSlotsFromWindow(
-            start, end,
+            start,
+            end,
             template.slotLengthMinutes,
             template.bufferMinutes,
             template.maxParallel,
@@ -43,25 +50,44 @@ export class SlotReconcilerService {
         }
       }
 
-      const existingSlots = await this.prisma.timeSlot.findMany({
-        where: { businessId, date },
-      });
+      allowedByDate.set(dateStr, allowedStartTimes);
+    }
 
-      for (const slot of existingSlots) {
-        if (!allowedStartTimes.has(slot.startTime)) {
-          if (slot.currentBookings === 0) {
-            await this.prisma.timeSlot.delete({ where: { id: slot.id } });
-            deleted++;
-          } else {
-            orphaned++;
-          }
+    const existingSlots = await this.prisma.timeSlot.findMany({
+      where: { businessId, date: { gte: today, lte: endDate } },
+      select: {
+        id: true,
+        date: true,
+        startTime: true,
+        currentBookings: true,
+      },
+    });
+
+    const idsToDelete: string[] = [];
+    let orphaned = 0;
+
+    for (const slot of existingSlots) {
+      const dateStr = slot.date.toISOString().split('T')[0];
+      const allowed = allowedByDate.get(dateStr) ?? new Set<string>();
+
+      if (!allowed.has(slot.startTime)) {
+        if (slot.currentBookings === 0) {
+          idsToDelete.push(slot.id);
+        } else {
+          orphaned++;
         }
       }
     }
 
+    if (idsToDelete.length > 0) {
+      await this.prisma.timeSlot.deleteMany({
+        where: { id: { in: idsToDelete } },
+      });
+    }
+
     await this.cache.invalidate(`slots:${businessId}:*`);
 
-    return { deleted, orphaned };
+    return { deleted: idsToDelete.length, orphaned };
   }
 
   private generateSlotsFromWindow(

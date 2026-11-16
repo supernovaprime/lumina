@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -26,38 +27,42 @@ model User {
   lastLoginAt   DateTime?
   tokenVersion  Int       @default(0)
 
-  customer      Customer?
-  business      Business?
-  refreshTokens     RefreshToken[]
-  auditLogs         AuditLog[]
-  verificationTokens VerificationToken[]
+  customer            Customer?
+  business            Business?
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]
+  verificationTokens  VerificationToken[]
   passwordResetTokens PasswordResetToken[]
-  gdprRequests      GdprRequest[]
+  gdprRequests        GdprRequest[]
 
   @@index([role])
   @@index([isActive])
+  @@index([createdAt])
+  @@index([lastLoginAt])
+  @@index([role, createdAt])
+  @@index([role, lastLoginAt])
 }
 
 model Customer {
-  id              String    @id @default(uuid())
-  userId          String    @unique
-  firstName       String
-  lastName        String
-  phone           String?
-  defaultVehicle  String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  firstName      String
+  lastName       String
+  phone          String?
+  defaultVehicle String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  user            User      @relation(fields: [userId], references: [id])
-  vehicles        Vehicle[]
-  bookings        Booking[]
-  favorites       Favorite[]
-  reviews         Review[]
+  user      User       @relation(fields: [userId], references: [id])
+  vehicles  Vehicle[]
+  bookings  Booking[]
+  favorites Favorite[]
+  reviews   Review[]
 }
 
 model Business {
-  id                 String    @id @default(uuid())
-  ownerId            String    @unique
+  id                 String                                 @id @default(uuid())
+  ownerId            String                                 @unique
   name               String
   description        String?
   address            String
@@ -70,26 +75,31 @@ model Business {
   email              String
   logo               String?
   coverImage         String?
-  rating             Float     @default(0)
-  reviewCount        Int       @default(0)
-  isVerified         Boolean   @default(false)
-  isActive           Boolean   @default(true)
-  verificationStatus VerificationStatus @default(PENDING)
+  rating             Float                                  @default(0)
+  reviewCount        Int                                    @default(0)
+  isVerified         Boolean                                @default(false)
+  isActive           Boolean                                @default(true)
+  verificationStatus VerificationStatus                     @default(PENDING)
   verifiedAt         DateTime?
   verifiedBy         String?
   rejectionReason    String?
-  timezone           String    @default("UTC")
+  timezone           String                                 @default("UTC")
   operatingHours     Json?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime                               @default(now())
+  updatedAt          DateTime                               @updatedAt
+  location           Unsupported("geography(POINT, 4326)")?
 
-  owner              User      @relation(fields: [ownerId], references: [id])
-  services           Service[]
-  bookings           Booking[]
-  timeSlots          TimeSlot[]
-  reviews            Review[]
-  favorites          Favorite[]
+  owner                User                  @relation(fields: [ownerId], references: [id])
+  services             Service[]
+  bookings             Booking[]
+  timeSlots            TimeSlot[]
+  reviews              Review[]
+  favorites            Favorite[]
   availabilityTemplate AvailabilityTemplate?
+
+  @@index([createdAt])
+  @@index([verificationStatus, createdAt])
+  @@index([isActive, createdAt])
 }
 
 // ============================================
@@ -97,20 +107,20 @@ model Business {
 // ============================================
 
 model Vehicle {
-  id          String      @id @default(uuid())
-  customerId  String
-  make        String
-  model       String
-  year        Int
-  color       String?
+  id           String      @id @default(uuid())
+  customerId   String
+  make         String
+  model        String
+  year         Int
+  color        String?
   licensePlate String
-  type        VehicleType
-  size        VehicleSize
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  type         VehicleType
+  size         VehicleSize
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
-  customer    Customer    @relation(fields: [customerId], references: [id])
-  bookings    Booking[]
+  customer Customer  @relation(fields: [customerId], references: [id])
+  bookings Booking[]
 
   @@unique([customerId, licensePlate])
 }
@@ -131,21 +141,21 @@ model Service {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  business        Business        @relation(fields: [businessId], references: [id])
-  bookings        Booking[]
-  priceModifiers  PriceModifier[]
+  business       Business        @relation(fields: [businessId], references: [id])
+  bookings       Booking[]
+  priceModifiers PriceModifier[]
 
   @@index([businessId])
 }
 
 model PriceModifier {
-  id          String   @id @default(uuid())
+  id          String      @id @default(uuid())
   serviceId   String
   vehicleType VehicleType
   vehicleSize VehicleSize
-  multiplier  Decimal  @db.Decimal(3, 2)
+  multiplier  Decimal     @db.Decimal(3, 2)
 
-  service     Service  @relation(fields: [serviceId], references: [id])
+  service Service @relation(fields: [serviceId], references: [id])
 
   @@unique([serviceId, vehicleType, vehicleSize])
 }
@@ -155,32 +165,32 @@ model PriceModifier {
 // ============================================
 
 model AvailabilityTemplate {
-  id                 String   @id @default(uuid())
-  businessId         String   @unique
-  slotLengthMinutes  Int      @default(30)
-  bufferMinutes      Int      @default(0)
-  maxParallel        Int      @default(1)
-  weekly             Json
-  blackouts          String[]
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(uuid())
+  businessId        String   @unique
+  slotLengthMinutes Int      @default(30)
+  bufferMinutes     Int      @default(0)
+  maxParallel       Int      @default(1)
+  weekly            Json
+  blackouts         String[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  business           Business @relation(fields: [businessId], references: [id])
+  business Business @relation(fields: [businessId], references: [id])
 }
 
 model TimeSlot {
-  id              String    @id @default(uuid())
+  id              String   @id @default(uuid())
   businessId      String
-  date            DateTime  @db.Date
+  date            DateTime @db.Date
   startTime       String
   endTime         String
-  isAvailable     Boolean   @default(true)
-  maxBookings     Int       @default(1)
-  currentBookings Int       @default(0)
-  createdAt       DateTime  @default(now())
+  isAvailable     Boolean  @default(true)
+  maxBookings     Int      @default(1)
+  currentBookings Int      @default(0)
+  createdAt       DateTime @default(now())
 
-  business        Business  @relation(fields: [businessId], references: [id])
-  bookings        Booking[]
+  business Business  @relation(fields: [businessId], references: [id])
+  bookings Booking[]
 
   @@unique([businessId, date, startTime])
 }
@@ -190,36 +200,44 @@ model TimeSlot {
 // ============================================
 
 model Booking {
-  id            String        @id @default(uuid())
-  customerId    String
-  businessId    String
-  serviceId     String
-  vehicleId     String
-  timeSlotId    String
-  date          DateTime      @db.Date
-  timeSlot      String
-  status        BookingStatus @default(PENDING)
-  totalPrice    Decimal       @db.Decimal(10, 2)
-  notes         String?
-  cancelledAt   DateTime?
-  cancelledBy   String?
-  cancelReason  String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id           String        @id @default(uuid())
+  customerId   String
+  businessId   String
+  serviceId    String
+  vehicleId    String
+  timeSlotId   String
+  date         DateTime      @db.Date
+  timeSlot     String
+  status       BookingStatus @default(PENDING)
+  totalPrice   Decimal       @db.Decimal(10, 2)
+  notes        String?
+  cancelledAt  DateTime?
+  cancelledBy  String?
+  cancelReason String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
-  customer      Customer      @relation(fields: [customerId], references: [id])
-  business      Business      @relation(fields: [businessId], references: [id])
-  service       Service       @relation(fields: [serviceId], references: [id])
-  vehicle       Vehicle       @relation(fields: [vehicleId], references: [id])
-  timeSlot_rel  TimeSlot      @relation(fields: [timeSlotId], references: [id])
-  payment       Payment?
-  review        Review?
+  customer     Customer @relation(fields: [customerId], references: [id])
+  business     Business @relation(fields: [businessId], references: [id])
+  service      Service  @relation(fields: [serviceId], references: [id])
+  vehicle      Vehicle  @relation(fields: [vehicleId], references: [id])
+  timeSlot_rel TimeSlot @relation(fields: [timeSlotId], references: [id])
+  payment      Payment?
+  review       Review?
 
   @@index([businessId])
   @@index([customerId])
   @@index([status])
   @@index([date])
   @@index([createdAt])
+  @@index([status, date])
+  @@index([status, createdAt])
+  @@index([businessId, createdAt])
+  @@index([customerId, createdAt])
+  @@index([businessId, date])
+  @@index([customerId, date])
+  @@index([businessId, status, date])
+  @@index([businessId, status, createdAt])
 }
 
 // ============================================
@@ -227,18 +245,21 @@ model Booking {
 // ============================================
 
 model Payment {
-  id              String        @id @default(uuid())
-  bookingId       String        @unique
-  amount          Decimal       @db.Decimal(10, 2)
-  currency        String        @default("USD")
-  status          PaymentStatus @default(PENDING)
-  method          String?
-  transactionId   String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id            String        @id @default(uuid())
+  bookingId     String        @unique
+  amount        Decimal       @db.Decimal(10, 2)
+  currency      String        @default("USD")
+  status        PaymentStatus @default(PENDING)
+  method        String?
+  transactionId String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  booking         Booking       @relation(fields: [bookingId], references: [id])
-  refunds         Refund[]
+  booking Booking  @relation(fields: [bookingId], references: [id])
+  refunds Refund[]
+
+  @@index([createdAt])
+  @@index([status, createdAt])
 }
 
 // ============================================
@@ -246,16 +267,16 @@ model Payment {
 // ============================================
 
 model Refund {
-  id              String       @id @default(uuid())
-  paymentId       String
-  amountCents     Int
-  reason          String
-  status          RefundStatus @default(PENDING)
-  stripeRefundId  String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id             String       @id @default(uuid())
+  paymentId      String
+  amountCents    Int
+  reason         String
+  status         RefundStatus @default(PENDING)
+  stripeRefundId String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  payment         Payment      @relation(fields: [paymentId], references: [id])
+  payment Payment @relation(fields: [paymentId], references: [id])
 
   @@index([paymentId])
   @@index([status])
@@ -266,21 +287,21 @@ model Refund {
 // ============================================
 
 model Review {
-  id          String   @id @default(uuid())
-  bookingId   String   @unique
-  customerId  String
-  businessId  String
-  rating      Int
-  comment     String?
-  response    String?
-  isHidden    Boolean  @default(false)
+  id           String   @id @default(uuid())
+  bookingId    String   @unique
+  customerId   String
+  businessId   String
+  rating       Int
+  comment      String?
+  response     String?
+  isHidden     Boolean  @default(false)
   hiddenReason String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  booking     Booking  @relation(fields: [bookingId], references: [id])
-  customer    Customer @relation(fields: [customerId], references: [id])
-  business    Business @relation(fields: [businessId], references: [id])
+  booking  Booking  @relation(fields: [bookingId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+  business Business @relation(fields: [businessId], references: [id])
 
   @@index([businessId])
   @@index([customerId])
@@ -292,13 +313,13 @@ model Review {
 // ============================================
 
 model Favorite {
-  id          String   @id @default(uuid())
-  customerId  String
-  businessId  String
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  customerId String
+  businessId String
+  createdAt  DateTime @default(now())
 
-  customer    Customer @relation(fields: [customerId], references: [id])
-  business    Business @relation(fields: [businessId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+  business Business @relation(fields: [businessId], references: [id])
 
   @@unique([customerId, businessId])
 }
@@ -308,37 +329,44 @@ model Favorite {
 // ============================================
 
 model RefreshToken {
-  id          String   @id @default(uuid())
-  userId      String
-  token       String   @unique
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([expiresAt])
 }
 
 model VerificationToken {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   userId    String
-  token     String   @unique
+  token     String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model PasswordResetToken {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   userId    String
-  token     String   @unique
+  token     String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // ============================================
@@ -346,20 +374,21 @@ model PasswordResetToken {
 // ============================================
 
 model Notification {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   userId    String
   type      String
   title     String
   body      String
   data      Json?
   channel   String
-  status    String   @default("PENDING")
+  status    String    @default("PENDING")
   sentAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  @@index([status, channel, createdAt])
 }
 
 // ============================================
@@ -375,7 +404,7 @@ model AuditLog {
   metadata   Json?
   createdAt  DateTime @default(now())
 
-  actor      User     @relation(fields: [actorId], references: [id])
+  actor User @relation(fields: [actorId], references: [id])
 
   @@index([actorId])
   @@index([entityType, entityId])
@@ -415,16 +444,16 @@ model ReportJob {
 // ============================================
 
 model GdprRequest {
-  id          String             @id @default(uuid())
+  id          String            @id @default(uuid())
   userId      String
   type        GdprRequestType
-  status      GdprRequestStatus  @default(PENDING)
+  status      GdprRequestStatus @default(PENDING)
   fileUrl     String?
   error       String?
-  createdAt   DateTime           @default(now())
+  createdAt   DateTime          @default(now())
   completedAt DateTime?
 
-  user        User               @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([status])

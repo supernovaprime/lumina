@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../libs/prisma/prisma.service';
 
 @Injectable()
@@ -11,6 +16,7 @@ export class ReviewService {
     const [reviews, total] = await Promise.all([
       this.prisma.review.findMany({
         where,
+        relationLoadStrategy: 'join',
         include: {
           customer: { select: { firstName: true, lastName: true } },
         },
@@ -36,7 +42,10 @@ export class ReviewService {
     return {
       reviews,
       summary: {
-        averageRating: allReviews.length > 0 ? Math.round((sum / allReviews.length) * 10) / 10 : 0,
+        averageRating:
+          allReviews.length > 0
+            ? Math.round((sum / allReviews.length) * 10) / 10
+            : 0,
         totalReviews: allReviews.length,
         ratingDistribution: distribution,
       },
@@ -52,7 +61,9 @@ export class ReviewService {
 
     if (!review) throw new NotFoundException('Review not found');
     if (review.business.ownerId !== userId) {
-      throw new ForbiddenException('You can only respond to reviews for your business');
+      throw new ForbiddenException(
+        'You can only respond to reviews for your business',
+      );
     }
     if (review.response) {
       throw new ConflictException({

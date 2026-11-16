@@ -10,9 +10,7 @@ describe('AnalyticsService', () => {
 
   beforeEach(async () => {
     prisma = {
-      booking: { count: jest.fn() },
-      payment: { aggregate: jest.fn() },
-      business: { findUnique: jest.fn() },
+      $queryRaw: jest.fn(),
     };
 
     cache = {
@@ -43,15 +41,21 @@ describe('AnalyticsService', () => {
     });
 
     it('should compute analytics on cache miss', async () => {
-      prisma.booking.count
-        .mockResolvedValueOnce(3)
-        .mockResolvedValueOnce(10)
-        .mockResolvedValueOnce(12)
-        .mockResolvedValue(7);
-      prisma.payment.aggregate.mockResolvedValue({ _sum: { amount: 500000 } });
-      prisma.business.findUnique.mockResolvedValue({ rating: 4.5, reviewCount: 20 });
+      prisma.$queryRaw
+        .mockResolvedValueOnce([
+          {
+            bookingsToday: 3,
+            revenueMTD: 500000,
+            upcomingBookings: 10,
+            completedBookings: 5,
+            totalBookings: 10,
+            averageRating: 4.5,
+            totalReviews: 20,
+          },
+        ])
+        .mockResolvedValueOnce([{ date: '2026-11-16', count: 1 }]);
 
-      const result = await service.getAnalytics('b1') as any;
+      const result = (await service.getAnalytics('b1')) as any;
 
       expect(result.bookingsToday).toBe(3);
       expect(result.revenueMTD).toBe(500000);
@@ -63,25 +67,45 @@ describe('AnalyticsService', () => {
     });
 
     it('should handle zero revenue', async () => {
-      prisma.booking.count.mockResolvedValue(0);
-      prisma.payment.aggregate.mockResolvedValue({ _sum: { amount: null } });
-      prisma.business.findUnique.mockResolvedValue(null);
+      prisma.$queryRaw
+        .mockResolvedValueOnce([
+          {
+            bookingsToday: 0,
+            revenueMTD: 0,
+            upcomingBookings: 0,
+            completedBookings: 0,
+            totalBookings: 0,
+            averageRating: 0,
+            totalReviews: 0,
+          },
+        ])
+        .mockResolvedValueOnce([]);
 
-      const result = await service.getAnalytics('b1') as any;
+      const result = (await service.getAnalytics('b1')) as any;
 
       expect(result.revenueMTD).toBe(0);
       expect(result.averageRating).toBe(0);
       expect(result.totalReviews).toBe(0);
     });
 
-    it('should call 5 booking count queries', async () => {
-      prisma.booking.count.mockResolvedValue(0);
-      prisma.payment.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
-      prisma.business.findUnique.mockResolvedValue({ rating: 0, reviewCount: 0 });
+    it('should use two raw queries instead of a query burst', async () => {
+      prisma.$queryRaw
+        .mockResolvedValueOnce([
+          {
+            bookingsToday: 0,
+            revenueMTD: 0,
+            upcomingBookings: 0,
+            completedBookings: 0,
+            totalBookings: 0,
+            averageRating: 0,
+            totalReviews: 0,
+          },
+        ])
+        .mockResolvedValueOnce([]);
 
       await service.getAnalytics('b1');
 
-      expect(prisma.booking.count).toHaveBeenCalledTimes(4 + 7);
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
     });
   });
 });

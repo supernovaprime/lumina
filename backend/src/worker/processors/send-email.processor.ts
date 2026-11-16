@@ -14,12 +14,20 @@ export class SendEmailProcessor {
   async process(notificationId: string): Promise<void> {
     const notification = await this.prisma.notification.findUnique({
       where: { id: notificationId },
+      select: {
+        id: true,
+        userId: true,
+        title: true,
+        body: true,
+        status: true,
+      },
     } as any);
 
     if (!notification || notification.status !== 'PENDING') return;
 
     const user = await this.prisma.user.findUnique({
       where: { id: notification.userId },
+      select: { email: true },
     });
 
     if (!user?.email) {

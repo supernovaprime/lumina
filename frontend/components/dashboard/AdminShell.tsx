@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2, LogOut, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { adminNavSections } from "@/components/dashboard/admin-nav";
+import { LogoutConfirmDialog } from "@/components/dashboard/LogoutConfirmDialog";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { buttonClass } from "@/components/ui/button";
@@ -30,6 +31,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [session, setSession] = useState<AuthSession | null>(null);
   const [checking, setChecking] = useState(true);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
 
   useEffect(() => {
     const current = getSession();
@@ -51,13 +53,18 @@ export function AdminShell({ children }: { children: ReactNode }) {
     setChecking(false);
   }, [router]);
 
-  const handleSignOut = () => {
+  const handleSignOut = useCallback(() => {
     clearSession();
+    setConfirmingSignOut(false);
     toast.success("Signed out", {
       description: "You have been securely signed out of the admin console.",
     });
     router.replace("/login");
-  };
+  }, [router]);
+
+  const handleCancelSignOut = useCallback(() => {
+    setConfirmingSignOut(false);
+  }, []);
 
   const isActive = (href: string) =>
     href === "/admin"
@@ -106,20 +113,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </div>
 
             <div className="relative z-10 flex items-center gap-2">
-              <Link
-                href="/"
-                className={buttonClass({
-                  variant: "ghost",
-                  size: "sm",
-                  className: "hidden h-10 sm:inline-flex",
-                })}
-              >
-                View site
-              </Link>
               <ThemeToggle />
               <button
                 type="button"
-                onClick={handleSignOut}
+                onClick={() => setConfirmingSignOut(true)}
                 aria-label="Sign out of the admin console"
                 className={buttonClass({
                   variant: "gradientOutline",
@@ -245,6 +242,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </div>
+
+      <LogoutConfirmDialog
+        open={confirmingSignOut}
+        email={email}
+        onCancel={handleCancelSignOut}
+        onConfirm={handleSignOut}
+      />
     </div>
   );
 }

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { CacheService } from '../libs/cache/cache.service';
 
@@ -18,7 +22,10 @@ export class BookingService {
     private readonly cache: CacheService,
   ) {}
 
-  async listByBusiness(businessId: string, filters: { date?: string; status?: string; page: number }) {
+  async listByBusiness(
+    businessId: string,
+    filters: { date?: string; status?: string; page: number },
+  ) {
     const where: any = { businessId };
     if (filters.date) where.date = new Date(filters.date);
     if (filters.status) where.status = filters.status;
@@ -26,9 +33,14 @@ export class BookingService {
     const [bookings, total] = await Promise.all([
       this.prisma.booking.findMany({
         where,
+        relationLoadStrategy: 'join',
         include: {
-          customer: { select: { firstName: true, lastName: true, phone: true } },
-          vehicle: { select: { make: true, model: true, year: true, licensePlate: true } },
+          customer: {
+            select: { firstName: true, lastName: true, phone: true },
+          },
+          vehicle: {
+            select: { make: true, model: true, year: true, licensePlate: true },
+          },
           service: { select: { name: true, basePrice: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -47,6 +59,7 @@ export class BookingService {
   async findById(businessId: string, bookingId: string) {
     const booking = await this.prisma.booking.findFirst({
       where: { id: bookingId, businessId },
+      relationLoadStrategy: 'join',
       include: {
         customer: true,
         vehicle: true,

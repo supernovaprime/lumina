@@ -32,7 +32,10 @@ export class NotificationService {
     data: Record<string, any>,
     channel: 'EMAIL' | 'SMS' | 'IN_APP' = 'EMAIL',
   ): Promise<string> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, phone: true, isActive: true },
+    });
     if (!user) {
       this.logger.warn(`Notification target user ${userId} not found`);
       return '';
@@ -94,7 +97,9 @@ export class NotificationService {
         }
       }
     } catch (err: any) {
-      this.logger.error(`Failed to send notification ${notification.id}: ${err.message}`);
+      this.logger.error(
+        `Failed to send notification ${notification.id}: ${err.message}`,
+      );
       await this.prisma.notification.update({
         where: { id: notification.id },
         data: { status: 'FAILED' },
@@ -107,10 +112,15 @@ export class NotificationService {
   async notifyBookingCreated(bookingId: string): Promise<void> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: {
-        customer: { include: { user: true } },
-        business: { include: { owner: true } },
-        service: true,
+      relationLoadStrategy: 'join',
+      select: {
+        date: true,
+        timeSlot: true,
+        customer: {
+          select: { userId: true, firstName: true, lastName: true },
+        },
+        business: { select: { ownerId: true, name: true } },
+        service: { select: { name: true } },
       },
     });
     if (!booking) return;
@@ -135,10 +145,14 @@ export class NotificationService {
   async notifyBookingCancelled(bookingId: string): Promise<void> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: {
-        customer: { include: { user: true } },
-        business: { include: { owner: true } },
-        service: true,
+      relationLoadStrategy: 'join',
+      select: {
+        cancelReason: true,
+        customer: {
+          select: { userId: true, firstName: true, lastName: true },
+        },
+        business: { select: { ownerId: true, name: true } },
+        service: { select: { name: true } },
       },
     });
     if (!booking) return;
@@ -159,10 +173,12 @@ export class NotificationService {
   async notifyPaymentSucceeded(bookingId: string): Promise<void> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: {
-        customer: { include: { user: true } },
-        business: true,
-        service: true,
+      relationLoadStrategy: 'join',
+      select: {
+        totalPrice: true,
+        customer: { select: { userId: true } },
+        business: { select: { name: true } },
+        service: { select: { name: true } },
       },
     });
     if (!booking) return;
@@ -179,10 +195,12 @@ export class NotificationService {
   async notifyReviewRequest(bookingId: string): Promise<void> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: {
-        customer: { include: { user: true } },
-        business: true,
-        service: true,
+      relationLoadStrategy: 'join',
+      select: {
+        totalPrice: true,
+        customer: { select: { userId: true } },
+        business: { select: { name: true } },
+        service: { select: { name: true } },
       },
     });
     if (!booking) return;
@@ -195,7 +213,14 @@ export class NotificationService {
   }
 
   private getTemplate(type: NotificationType, data: Record<string, any>) {
-    const templates: Record<NotificationType, (d: Record<string, any>) => { subject: string; title: string; body: string }> = {
+    const templates: Record<
+      NotificationType,
+      (d: Record<string, any>) => {
+        subject: string;
+        title: string;
+        body: string;
+      }
+    > = {
       'booking-created': (d) => ({
         subject: `Booking Confirmed - ${d.businessName}`,
         title: 'Booking Created',

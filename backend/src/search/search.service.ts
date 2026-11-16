@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { CacheService } from '../libs/cache/cache.service';
 import { GeoService } from '../libs/geo/geo.service';
-import { applyCursorPagination, CursorPaginationResult } from '../libs/common/cursor-pagination';
+import {
+  applyCursorPagination,
+  CursorPaginationResult,
+} from '../libs/common/cursor-pagination';
 
 export interface SearchFilters {
   query?: string;
@@ -35,7 +38,18 @@ export class SearchService {
   ) {}
 
   async search(filters: SearchFilters): Promise<SearchResult> {
-    const { query, lat, lng, radiusKm = 10, service, minRating, openNow, sort = 'distance', cursor, limit = 20 } = filters;
+    const {
+      query,
+      lat,
+      lng,
+      radiusKm = 10,
+      service,
+      minRating,
+      openNow,
+      sort = 'distance',
+      cursor,
+      limit = 20,
+    } = filters;
 
     const cacheKey = CacheService.searchKey(JSON.stringify(filters));
     const cached = await this.cache.get(cacheKey);
@@ -66,12 +80,17 @@ export class SearchService {
 
     if (openNow) {
       const now = new Date();
-      const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+      const dayOfWeek = now
+        .toLocaleDateString('en-US', { weekday: 'long' })
+        .toUpperCase();
       const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
       results = results.filter((b: any) => {
         if (!b.operatingHours) return false;
-        const hours = b.operatingHours as Record<string, { open: string; close: string }>;
+        const hours = b.operatingHours as Record<
+          string,
+          { open: string; close: string }
+        >;
         const todayHours = hours[dayOfWeek];
         if (!todayHours) return false;
         return currentTime >= todayHours.open && currentTime < todayHours.close;
@@ -81,7 +100,10 @@ export class SearchService {
     if (sort === 'rating') {
       results.sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0));
     } else if (sort === 'price') {
-      results.sort((a: any, b: any) => (a.startingPriceCents || 0) - (b.startingPriceCents || 0));
+      results.sort(
+        (a: any, b: any) =>
+          (a.startingPriceCents || 0) - (b.startingPriceCents || 0),
+      );
     }
 
     const paginated = applyCursorPagination(results, limit, cursor);
@@ -89,25 +111,48 @@ export class SearchService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const enriched = await Promise.all(
-      paginated.data.map(async (b: any) => {
-        const nextSlot = await this.prisma.timeSlot.findFirst({
+    const businessIds = paginated.data.map((business: any) => business.id);
+    const nextSlots = businessIds.length
+      ? await this.prisma.timeSlot.findMany({
           where: {
-            businessId: b.id,
+            businessId: { in: businessIds },
             date: { gte: today },
             isAvailable: true,
           },
-          orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
-        });
+          select: {
+            businessId: true,
+            date: true,
+            startTime: true,
+            endTime: true,
+          },
+          orderBy: [
+            { businessId: 'asc' },
+            { date: 'asc' },
+            { startTime: 'asc' },
+          ],
+        })
+      : [];
 
-        return {
-          ...b,
-          nextAvailableSlot: nextSlot
-            ? { date: nextSlot.date, startTime: nextSlot.startTime, endTime: nextSlot.endTime }
-            : null,
-        };
-      }),
-    );
+    const nextSlotByBusiness = new Map<string, (typeof nextSlots)[number]>();
+    for (const slot of nextSlots) {
+      if (!nextSlotByBusiness.has(slot.businessId)) {
+        nextSlotByBusiness.set(slot.businessId, slot);
+      }
+    }
+
+    const enriched = paginated.data.map((business: any) => {
+      const nextSlot = nextSlotByBusiness.get(business.id);
+      return {
+        ...business,
+        nextAvailableSlot: nextSlot
+          ? {
+              date: nextSlot.date,
+              startTime: nextSlot.startTime,
+              endTime: nextSlot.endTime,
+            }
+          : null,
+      };
+    });
 
     const response: SearchResult = {
       businesses: enriched,
@@ -123,7 +168,10 @@ export class SearchService {
     await this.cache.del('search:*');
   }
 
-  private async textSearch(query: string | undefined, options: { limit: number; cursor?: string }) {
+  private async textSearch(
+    query: string | undefined,
+    options: { limit: number; cursor?: string },
+  ) {
     const where: any = {
       isVerified: true,
       isActive: true,
@@ -145,7 +193,10 @@ export class SearchService {
     return this.prisma.business.findMany({
       where,
       include: {
-        services: { where: { isActive: true }, select: { id: true, name: true, category: true, basePrice: true } },
+        services: {
+          where: { isActive: true },
+          select: { id: true, name: true, category: true, basePrice: true },
+        },
       },
       take: options.limit,
       orderBy: { rating: 'desc' },

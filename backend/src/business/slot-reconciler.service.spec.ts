@@ -13,7 +13,7 @@ describe('SlotReconcilerService', () => {
       availabilityTemplate: { findUnique: jest.fn() },
       timeSlot: {
         findMany: jest.fn(),
-        delete: jest.fn(),
+        deleteMany: jest.fn(),
       },
     };
 
@@ -41,19 +41,27 @@ describe('SlotReconcilerService', () => {
         slotLengthMinutes: 30,
         bufferMinutes: 0,
         maxParallel: 1,
-        weekly: { mon: [['10:00', '14:00']], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
+        weekly: {
+          mon: [['10:00', '14:00']],
+          tue: [],
+          wed: [],
+          thu: [],
+          fri: [],
+          sat: [],
+          sun: [],
+        },
         blackouts: [],
       });
       prisma.timeSlot.findMany.mockResolvedValue([
-        { id: 's1', startTime: '09:00', currentBookings: 0 },
-        { id: 's2', startTime: '10:00', currentBookings: 0 },
+        { id: 's1', date: new Date(), startTime: '09:00', currentBookings: 0 },
+        { id: 's2', date: new Date(), startTime: '10:00', currentBookings: 0 },
       ]);
-      prisma.timeSlot.delete.mockResolvedValue({});
+      prisma.timeSlot.deleteMany.mockResolvedValue({ count: 1 });
 
       const result = await service.reconcileFutureSlots('b1');
 
       expect(result.deleted).toBeGreaterThanOrEqual(1);
-      expect(prisma.timeSlot.delete).toHaveBeenCalled();
+      expect(prisma.timeSlot.deleteMany).toHaveBeenCalled();
     });
 
     it('should keep slots with bookings (orphaned)', async () => {
@@ -62,17 +70,25 @@ describe('SlotReconcilerService', () => {
         slotLengthMinutes: 30,
         bufferMinutes: 0,
         maxParallel: 1,
-        weekly: { mon: [['10:00', '14:00']], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
+        weekly: {
+          mon: [['10:00', '14:00']],
+          tue: [],
+          wed: [],
+          thu: [],
+          fri: [],
+          sat: [],
+          sun: [],
+        },
         blackouts: [],
       });
       prisma.timeSlot.findMany.mockResolvedValue([
-        { id: 's1', startTime: '09:00', currentBookings: 2 },
+        { id: 's1', date: new Date(), startTime: '09:00', currentBookings: 2 },
       ]);
 
       const result = await service.reconcileFutureSlots('b1');
 
       expect(result.orphaned).toBeGreaterThanOrEqual(1);
-      expect(prisma.timeSlot.delete).not.toHaveBeenCalled();
+      expect(prisma.timeSlot.deleteMany).not.toHaveBeenCalled();
     });
 
     it('should return 0 if no template exists', async () => {
@@ -89,7 +105,15 @@ describe('SlotReconcilerService', () => {
         slotLengthMinutes: 30,
         bufferMinutes: 0,
         maxParallel: 1,
-        weekly: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
+        weekly: {
+          mon: [],
+          tue: [],
+          wed: [],
+          thu: [],
+          fri: [],
+          sat: [],
+          sun: [],
+        },
         blackouts: [],
       });
       prisma.timeSlot.findMany.mockResolvedValue([]);
@@ -106,13 +130,21 @@ describe('SlotReconcilerService', () => {
         slotLengthMinutes: 30,
         bufferMinutes: 0,
         maxParallel: 1,
-        weekly: { mon: [['09:00', '17:00']], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
+        weekly: {
+          mon: [['09:00', '17:00']],
+          tue: [],
+          wed: [],
+          thu: [],
+          fri: [],
+          sat: [],
+          sun: [],
+        },
         blackouts: [today],
       });
       prisma.timeSlot.findMany.mockResolvedValue([
-        { id: 's1', startTime: '09:00', currentBookings: 0 },
+        { id: 's1', date: new Date(), startTime: '09:00', currentBookings: 0 },
       ]);
-      prisma.timeSlot.delete.mockResolvedValue({});
+      prisma.timeSlot.deleteMany.mockResolvedValue({ count: 1 });
 
       const result = await service.reconcileFutureSlots('b1');
 

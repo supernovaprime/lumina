@@ -7,10 +7,20 @@ describe('SlotGeneratorService', () => {
   let service: SlotGeneratorService;
   let prisma: any;
   let cache: any;
-  const todayKey = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()];
+  const todayKey = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][
+    new Date().getDay()
+  ];
 
   function makeWeekly(daySlots: string[][]) {
-    const week: Record<string, string[][]> = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+    const week: Record<string, string[][]> = {
+      mon: [],
+      tue: [],
+      wed: [],
+      thu: [],
+      fri: [],
+      sat: [],
+      sun: [],
+    };
     week[todayKey] = daySlots;
     return week;
   }
@@ -19,8 +29,7 @@ describe('SlotGeneratorService', () => {
     prisma = {
       availabilityTemplate: { findUnique: jest.fn() },
       timeSlot: {
-        findUnique: jest.fn(),
-        create: jest.fn(),
+        createMany: jest.fn(),
       },
     };
 
@@ -51,13 +60,15 @@ describe('SlotGeneratorService', () => {
         weekly: makeWeekly([['09:00', '17:00']]),
         blackouts: [],
       });
-      prisma.timeSlot.findUnique.mockResolvedValue(null);
-      prisma.timeSlot.create.mockResolvedValue({});
+      prisma.timeSlot.createMany.mockResolvedValue({ count: 16 });
 
-      const result = await service.generateSlots('b1', 1) as any;
+      const result = (await service.generateSlots('b1', 1)) as any;
 
       expect(result.created).toBe(16);
-      expect(prisma.timeSlot.create).toHaveBeenCalledTimes(16);
+      expect(prisma.timeSlot.createMany).toHaveBeenCalledTimes(1);
+      expect(prisma.timeSlot.createMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skipDuplicates: true }),
+      );
       expect(cache.invalidate).toHaveBeenCalledWith('slots:b1:*');
     });
 
@@ -72,13 +83,13 @@ describe('SlotGeneratorService', () => {
         blackouts: [today],
       });
 
-      const result = await service.generateSlots('b1', 1) as any;
+      const result = (await service.generateSlots('b1', 1)) as any;
 
       expect(result.created).toBe(0);
-      expect(prisma.timeSlot.create).not.toHaveBeenCalled();
+      expect(prisma.timeSlot.createMany).not.toHaveBeenCalled();
     });
 
-    it('should not overwrite existing slots', async () => {
+    it('should rely on skipDuplicates to avoid overwriting existing slots', async () => {
       prisma.availabilityTemplate.findUnique.mockResolvedValue({
         businessId: 'b1',
         slotLengthMinutes: 30,
@@ -87,12 +98,14 @@ describe('SlotGeneratorService', () => {
         weekly: makeWeekly([['09:00', '12:00']]),
         blackouts: [],
       });
-      prisma.timeSlot.findUnique.mockResolvedValue({ id: 'existing-slot' });
+      prisma.timeSlot.createMany.mockResolvedValue({ count: 0 });
 
-      const result = await service.generateSlots('b1', 1) as any;
+      const result = (await service.generateSlots('b1', 1)) as any;
 
       expect(result.created).toBe(0);
-      expect(prisma.timeSlot.create).not.toHaveBeenCalled();
+      expect(prisma.timeSlot.createMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skipDuplicates: true }),
+      );
     });
 
     it('should handle buffer between slots', async () => {
@@ -104,13 +117,12 @@ describe('SlotGeneratorService', () => {
         weekly: makeWeekly([['09:00', '11:00']]),
         blackouts: [],
       });
-      prisma.timeSlot.findUnique.mockResolvedValue(null);
-      prisma.timeSlot.create.mockResolvedValue({});
+      prisma.timeSlot.createMany.mockResolvedValue({ count: 3 });
 
-      const result = await service.generateSlots('b1', 1) as any;
+      const result = (await service.generateSlots('b1', 1)) as any;
 
       expect(result.created).toBe(3);
-      expect(prisma.timeSlot.create).toHaveBeenCalledTimes(3);
+      expect(prisma.timeSlot.createMany).toHaveBeenCalledTimes(1);
     });
 
     it('should return 0 if no template exists', async () => {
@@ -122,7 +134,15 @@ describe('SlotGeneratorService', () => {
     });
 
     it('should handle multiple days', async () => {
-      const allDays: Record<string, string[][]> = { mon: [['09:00', '12:00']], tue: [['09:00', '12:00']], wed: [['09:00', '12:00']], thu: [['09:00', '12:00']], fri: [['09:00', '12:00']], sat: [['09:00', '12:00']], sun: [['09:00', '12:00']] };
+      const allDays: Record<string, string[][]> = {
+        mon: [['09:00', '12:00']],
+        tue: [['09:00', '12:00']],
+        wed: [['09:00', '12:00']],
+        thu: [['09:00', '12:00']],
+        fri: [['09:00', '12:00']],
+        sat: [['09:00', '12:00']],
+        sun: [['09:00', '12:00']],
+      };
       prisma.availabilityTemplate.findUnique.mockResolvedValue({
         businessId: 'b1',
         slotLengthMinutes: 60,
@@ -131,10 +151,9 @@ describe('SlotGeneratorService', () => {
         weekly: allDays,
         blackouts: [],
       });
-      prisma.timeSlot.findUnique.mockResolvedValue(null);
-      prisma.timeSlot.create.mockResolvedValue({});
+      prisma.timeSlot.createMany.mockResolvedValue({ count: 21 });
 
-      const result = await service.generateSlots('b1', 7) as any;
+      const result = (await service.generateSlots('b1', 7)) as any;
 
       expect(result.created).toBe(21);
     });
@@ -149,7 +168,13 @@ describe('SlotGeneratorService', () => {
     });
 
     it('should account for buffer', () => {
-      const slots = service.generateSlotsFromWindow('09:00', '11:00', 30, 10, 1);
+      const slots = service.generateSlotsFromWindow(
+        '09:00',
+        '11:00',
+        30,
+        10,
+        1,
+      );
       expect(slots).toHaveLength(3);
       expect(slots[0]).toEqual({ startTime: '09:00', endTime: '09:30' });
       expect(slots[1]).toEqual({ startTime: '09:40', endTime: '10:10' });

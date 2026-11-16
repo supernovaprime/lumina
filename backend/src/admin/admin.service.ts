@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { CacheService } from '../libs/cache/cache.service';
 import { AuditService } from '../libs/audit/audit.service';
@@ -25,35 +29,46 @@ export class AdminService {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [bookingsToday, revenueResult, activeBusinesses, pendingVerifications, totalUsers] =
-      await Promise.all([
-        this.prisma.booking.count({
-          where: { createdAt: { gte: startOfDay(now), lte: endOfDay(now) } },
-        }),
-        this.prisma.payment.aggregate({
-          where: {
-            status: 'COMPLETED',
-            createdAt: { gte: monthStart, lte: endOfDay(now) },
-          },
-          _sum: { amount: true },
-        }),
-        this.prisma.business.count({
-          where: { isActive: true, isVerified: true },
-        }),
-        this.prisma.business.count({
-          where: { verificationStatus: 'PENDING' },
-        }),
-        this.prisma.user.count({
-          where: { isActive: true },
-        }),
-      ]);
+    // One round trip instead of five simultaneous COUNT/aggregate queries.
+    // Supabase's pooler is the bottleneck, so reducing connection pressure
+    // matters more than the individual query plans here.
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        bookingsToday: number;
+        revenueMTD: number;
+        activeBusinesses: number;
+        pendingVerifications: number;
+        totalUsers: number;
+      }>
+    >`
+      SELECT
+        (SELECT COUNT(*)::int
+           FROM "Booking"
+          WHERE "createdAt" >= ${startOfDay(now)}
+            AND "createdAt" <= ${endOfDay(now)}) AS "bookingsToday",
+        (SELECT COALESCE(SUM("amount"), 0)::float8
+           FROM "Payment"
+          WHERE "status" = 'COMPLETED'
+            AND "createdAt" >= ${monthStart}
+            AND "createdAt" <= ${endOfDay(now)}) AS "revenueMTD",
+        (SELECT COUNT(*)::int
+           FROM "Business"
+          WHERE "isActive" = true AND "isVerified" = true) AS "activeBusinesses",
+        (SELECT COUNT(*)::int
+           FROM "Business"
+          WHERE "verificationStatus" = 'PENDING') AS "pendingVerifications",
+        (SELECT COUNT(*)::int
+           FROM "User"
+          WHERE "isActive" = true) AS "totalUsers"
+    `;
 
+    const row = rows[0];
     const metrics = {
-      bookingsToday,
-      revenueMTD: revenueResult._sum.amount || 0,
-      activeBusinesses,
-      pendingVerifications,
-      totalUsers,
+      bookingsToday: Number(row?.bookingsToday ?? 0),
+      revenueMTD: Number(row?.revenueMTD ?? 0),
+      activeBusinesses: Number(row?.activeBusinesses ?? 0),
+      pendingVerifications: Number(row?.pendingVerifications ?? 0),
+      totalUsers: Number(row?.totalUsers ?? 0),
     };
 
     await this.cache.set(CacheService.dashboardKey(), metrics, 60);
@@ -63,29 +78,59 @@ export class AdminService {
   // ─── User Management ────────────────────────────────────────
 
   async listUsers(dto: ListUsersDto) {
-    const { role, q, page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = dto;
+    const {
+      role,
+      q,
+      page = 1,
+      limit = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = dto;
+    const term = q?.trim();
+    const cacheKey = CacheService.adminUsersKey(
+      [role ?? 'all', term ?? '', page, limit, sortBy, sortOrder].join('|'),
+    );
+
+    const cached = await this.cache.get<{
+      data: any[];
+      meta: { page: number; limit: number; total: number; totalPages: number };
+    }>(cacheKey);
+    if (cached) return cached;
 
     const where: any = {};
     if (role) where.role = role;
-    if (q) {
+    if (term) {
       where.OR = [
-        { email: { contains: q, mode: 'insensitive' } },
-        { customer: { firstName: { contains: q, mode: 'insensitive' } } },
-        { customer: { lastName: { contains: q, mode: 'insensitive' } } },
+        { email: { contains: term, mode: 'insensitive' } },
+        { customer: { firstName: { contains: term, mode: 'insensitive' } } },
+        { customer: { lastName: { contains: term, mode: 'insensitive' } } },
+        { business: { name: { contains: term, mode: 'insensitive' } } },
       ];
     }
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
-        include: {
+        relationLoadStrategy: 'join',
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          isActive: true,
+          emailVerified: true,
+          lastLoginAt: true,
+          createdAt: true,
           customer: {
-            include: {
+            select: {
+              firstName: true,
+              lastName: true,
+              phone: true,
               _count: { select: { vehicles: true, bookings: true } },
             },
           },
           business: {
-            include: {
+            select: {
+              name: true,
               _count: { select: { services: true, bookings: true } },
             },
           },
@@ -97,7 +142,7 @@ export class AdminService {
       this.prisma.user.count({ where }),
     ]);
 
-    return {
+    const result = {
       data: users.map((u) => this.formatUser(u)),
       meta: {
         page,
@@ -106,34 +151,109 @@ export class AdminService {
         totalPages: Math.ceil(total / limit),
       },
     };
+
+    await this.cache.set(cacheKey, result, 30);
+    return result;
   }
 
   async getUserDetail(id: string) {
+    const cacheKey = CacheService.adminUserKey(id);
+    const cached = await this.cache.get<{ data: any }>(cacheKey);
+    if (cached) return cached;
+
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: {
+      relationLoadStrategy: 'join',
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        emailVerified: true,
+        lastLoginAt: true,
+        createdAt: true,
         customer: {
-          include: {
-            vehicles: true,
-            bookings: { orderBy: { createdAt: 'desc' }, take: 10 },
-            _count: { select: { reviews: true, favorites: true } },
+          select: {
+            firstName: true,
+            lastName: true,
+            phone: true,
+            vehicles: {
+              select: {
+                id: true,
+                make: true,
+                model: true,
+                year: true,
+                color: true,
+                licensePlate: true,
+                type: true,
+                size: true,
+                createdAt: true,
+              },
+              orderBy: { createdAt: 'desc' },
+            },
+            bookings: {
+              orderBy: { createdAt: 'desc' },
+              take: 10,
+              select: {
+                id: true,
+                date: true,
+                timeSlot: true,
+                status: true,
+                totalPrice: true,
+                notes: true,
+                createdAt: true,
+                service: { select: { name: true } },
+                business: { select: { name: true } },
+              },
+            },
+            _count: {
+              select: {
+                vehicles: true,
+                bookings: true,
+                reviews: true,
+                favorites: true,
+              },
+            },
           },
         },
         business: {
-          include: {
-            services: true,
-            _count: { select: { bookings: true, reviews: true } },
+          select: {
+            name: true,
+            services: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+                basePrice: true,
+                durationMinutes: true,
+                isActive: true,
+              },
+              orderBy: { name: 'asc' },
+            },
+            _count: {
+              select: {
+                services: true,
+                bookings: true,
+                reviews: true,
+              },
+            },
           },
         },
       },
     });
 
     if (!user) throw new NotFoundException('User not found');
-    return { data: this.formatUserDetail(user) };
+
+    const result = { data: this.formatUserDetail(user) };
+    await this.cache.set(cacheKey, result, 60);
+    return result;
   }
 
   async activateUser(id: string) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, isActive: true },
+    });
     if (!user) throw new NotFoundException('User not found');
     if (user.isActive) throw new ConflictException('User is already active');
 
@@ -142,13 +262,23 @@ export class AdminService {
       data: { isActive: true },
     });
 
-    return { data: { id, isActive: true, message: 'User activated successfully' } };
+    await this.invalidateUserCaches(id);
+
+    return {
+      data: { id, isActive: true, message: 'User activated successfully' },
+    };
   }
 
   async deactivateUser(id: string, reason?: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: { customer: true, business: true },
+      select: {
+        id: true,
+        email: true,
+        isActive: true,
+        customer: { select: { id: true } },
+        business: { select: { id: true } },
+      },
     });
     if (!user) throw new NotFoundException('User not found');
     if (!user.isActive) throw new ConflictException('User is already inactive');
@@ -200,6 +330,8 @@ export class AdminService {
       });
     });
 
+    await this.invalidateUserCaches(id, user.business?.id);
+
     await this.email.send({
       to: user.email,
       subject: 'Account Deactivated',
@@ -221,6 +353,17 @@ export class AdminService {
 
   async listBusinesses(dto: ListBusinessesDto) {
     const { status, isActive, q, page = 1, limit = 20 } = dto;
+    const cacheKey = CacheService.adminBusinessesKey(
+      [status ?? 'all', isActive ?? 'all', q?.trim() ?? '', page, limit].join(
+        '|',
+      ),
+    );
+
+    const cached = await this.cache.get<{
+      data: any[];
+      meta: { page: number; limit: number; total: number; totalPages: number };
+    }>(cacheKey);
+    if (cached) return cached;
 
     const where: any = {};
     if (status) where.verificationStatus = status;
@@ -236,6 +379,7 @@ export class AdminService {
     const [businesses, total] = await Promise.all([
       this.prisma.business.findMany({
         where,
+        relationLoadStrategy: 'join',
         include: {
           owner: { select: { id: true, email: true } },
           _count: { select: { services: true, bookings: true } },
@@ -247,15 +391,23 @@ export class AdminService {
       this.prisma.business.count({ where }),
     ]);
 
-    return {
+    const result = {
       data: businesses,
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
+
+    await this.cache.set(cacheKey, result, 30);
+    return result;
   }
 
   async getBusinessDetail(id: string) {
+    const cacheKey = CacheService.adminBusinessKey(id);
+    const cached = await this.cache.get<{ data: any }>(cacheKey);
+    if (cached) return cached;
+
     const business = await this.prisma.business.findUnique({
       where: { id },
+      relationLoadStrategy: 'join',
       include: {
         owner: { select: { id: true, email: true } },
         services: true,
@@ -273,16 +425,27 @@ export class AdminService {
       _sum: { amount: true },
     });
 
-    return {
+    const result = {
       data: {
         ...business,
         totalRevenue: revenueResult._sum.amount || 0,
       },
     };
+
+    await this.cache.set(cacheKey, result, 60);
+    return result;
   }
 
   async verifyBusiness(id: string, dto: VerifyBusinessDto, adminId: string) {
-    const business = await this.prisma.business.findUnique({ where: { id } });
+    const business = await this.prisma.business.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        verificationStatus: true,
+      },
+    });
     if (!business) throw new NotFoundException('Business not found');
     if (business.verificationStatus !== 'PENDING') {
       throw new ConflictException('Business is not pending verification');
@@ -304,13 +467,17 @@ export class AdminService {
 
     await this.audit.write({
       actorId: adminId,
-      action: dto.action === 'APPROVE' ? 'BUSINESS_APPROVED' : 'BUSINESS_REJECTED',
+      action:
+        dto.action === 'APPROVE' ? 'BUSINESS_APPROVED' : 'BUSINESS_REJECTED',
       entityType: 'BUSINESS',
       entityId: id,
       metadata: { reason: dto.reason },
     });
 
-    await this.cache.del(`business:${id}`);
+    await this.cache.del(CacheService.businessKey(id));
+    await this.cache.del(CacheService.adminBusinessKey(id));
+    await this.cache.del(CacheService.dashboardKey());
+    await this.cache.invalidate('admin:businesses:*');
     await this.cache.invalidate('search:*');
 
     await this.email.send({
@@ -323,7 +490,10 @@ export class AdminService {
   }
 
   async deactivateBusiness(id: string, reason?: string, adminId?: string) {
-    const business = await this.prisma.business.findUnique({ where: { id } });
+    const business = await this.prisma.business.findUnique({
+      where: { id },
+      select: { id: true, name: true, email: true, isActive: true },
+    });
     if (!business) throw new NotFoundException('Business not found');
 
     await this.prisma.business.update({
@@ -339,10 +509,33 @@ export class AdminService {
       metadata: { reason },
     });
 
-    await this.cache.del(`business:${id}`);
+    await this.cache.del(CacheService.businessKey(id));
+    await this.cache.del(CacheService.adminBusinessKey(id));
+    await this.cache.del(CacheService.dashboardKey());
+    await this.cache.invalidate('admin:businesses:*');
     await this.cache.invalidate('search:*');
 
     return { data: { id, isActive: false, message: 'Business deactivated' } };
+  }
+
+  // ─── Cache Invalidation ─────────────────────────────────────
+
+  private async invalidateUserCaches(id: string, businessId?: string) {
+    const invalidations: Promise<void>[] = [
+      this.cache.invalidate('admin:users:*'),
+      this.cache.del(CacheService.adminUserKey(id)),
+      this.cache.del(CacheService.dashboardKey()),
+      this.cache.del(CacheService.authUserKey(id)),
+    ];
+
+    if (businessId) {
+      invalidations.push(
+        this.cache.del(CacheService.businessKey(businessId)),
+        this.cache.invalidate('search:*'),
+      );
+    }
+
+    await Promise.all(invalidations);
   }
 
   // ─── Formatters ─────────────────────────────────────────────

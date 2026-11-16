@@ -4,64 +4,78 @@ import { RolesGuard } from './roles.guard';
 
 describe('RolesGuard', () => {
   let guard: RolesGuard;
-  let reflector: Reflector;
 
   beforeEach(() => {
-    reflector = new Reflector();
-    guard = new RolesGuard(reflector);
+    guard = new RolesGuard(new Reflector());
   });
 
-  function createContext(user?: any, handlerRoles?: string[]) {
-    const mockHandler = () => {};
-    if (handlerRoles) {
-      Reflect.defineMetadata('roles', handlerRoles, mockHandler);
+  function createContext(
+    user?: any,
+    metadata: { handlerRoles?: string[]; classRoles?: string[] } = {},
+  ) {
+    const handler = () => {};
+    class TestController {}
+
+    if (metadata.handlerRoles) {
+      Reflect.defineMetadata('roles', metadata.handlerRoles, handler);
+    }
+
+    if (metadata.classRoles) {
+      Reflect.defineMetadata('roles', metadata.classRoles, TestController);
     }
 
     return {
       switchToHttp: () => ({
         getRequest: () => ({ user }),
       }),
-      getHandler: () => mockHandler,
+      getHandler: () => handler,
+      getClass: () => TestController,
     } as unknown as ExecutionContext;
   }
 
-  it('should allow access when no roles are required', () => {
-    reflector.get = jest.fn().mockReturnValue(null);
-
-    const result = guard.canActivate(createContext({ role: 'CUSTOMER' }));
-
-    expect(result).toBe(true);
+  it('allows access when no roles are required', () => {
+    expect(guard.canActivate(createContext({ role: 'CUSTOMER' }))).toBe(true);
   });
 
-  it('should allow access when user has required role', () => {
-    reflector.get = jest.fn().mockReturnValue(['ADMIN']);
+  it('allows an admin through a class-level role rule', () => {
+    const context = createContext(
+      { role: 'ADMIN' },
+      { classRoles: ['ADMIN'] },
+    );
 
-    const result = guard.canActivate(createContext({ role: 'ADMIN' }, ['ADMIN']));
-
-    expect(result).toBe(true);
+    expect(guard.canActivate(context)).toBe(true);
   });
 
-  it('should deny access when user does not have required role', () => {
-    reflector.get = jest.fn().mockReturnValue(['ADMIN']);
+  it('denies a non-admin through a class-level role rule', () => {
+    const context = createContext(
+      { role: 'CUSTOMER' },
+      { classRoles: ['ADMIN'] },
+    );
 
-    const result = guard.canActivate(createContext({ role: 'CUSTOMER' }, ['ADMIN']));
-
-    expect(result).toBe(false);
+    expect(guard.canActivate(context)).toBe(false);
   });
 
-  it('should deny access when user is not present', () => {
-    reflector.get = jest.fn().mockReturnValue(['ADMIN']);
+  it('allows access when the user has a required handler role', () => {
+    const context = createContext(
+      { role: 'BUSINESS' },
+      { handlerRoles: ['ADMIN', 'BUSINESS'] },
+    );
 
-    const result = guard.canActivate(createContext(undefined, ['ADMIN']));
-
-    expect(result).toBe(false);
+    expect(guard.canActivate(context)).toBe(true);
   });
 
-  it('should allow access when multiple roles include user role', () => {
-    reflector.get = jest.fn().mockReturnValue(['ADMIN', 'BUSINESS']);
+  it('lets handler roles override class roles', () => {
+    const context = createContext(
+      { role: 'ADMIN' },
+      { handlerRoles: ['ADMIN'], classRoles: ['BUSINESS'] },
+    );
 
-    const result = guard.canActivate(createContext({ role: 'BUSINESS' }, ['ADMIN', 'BUSINESS']));
+    expect(guard.canActivate(context)).toBe(true);
+  });
 
-    expect(result).toBe(true);
+  it('denies access when the user is missing', () => {
+    const context = createContext(undefined, { classRoles: ['ADMIN'] });
+
+    expect(guard.canActivate(context)).toBe(false);
   });
 });

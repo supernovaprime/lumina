@@ -6,6 +6,7 @@ import { PrismaService } from '../libs/prisma/prisma.service';
 import { TokenService } from '../libs/tokens/token.service';
 import { RateLimitService } from '../libs/rate-limit/rate-limit.service';
 import { NotificationService } from '../notification/notification.service';
+import { CacheService } from '../libs/cache/cache.service';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +17,7 @@ export class AuthService {
     private readonly tokenService: TokenService,
     private readonly rateLimit: RateLimitService,
     private readonly notificationService: NotificationService,
+    private readonly cache: CacheService,
   ) {}
 
   async register(dto: {
@@ -121,10 +123,23 @@ export class AuthService {
       expiresIn: this.config.get('JWT_EXPIRES_IN', '15m'),
     });
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
+    await Promise.all([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() },
+      }),
+      this.cache.set(
+        CacheService.authUserKey(user.id),
+        {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          isActive: user.isActive,
+          tokenVersion: user.tokenVersion,
+        },
+        30,
+      ),
+    ]);
 
     return {
       user: {

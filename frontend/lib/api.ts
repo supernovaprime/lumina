@@ -1,6 +1,6 @@
 import { getAccessToken } from "@/lib/auth";
 
-const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:7000/api/v1";
+const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";
 
 export const API_BASE_URL = rawBaseUrl.replace(/\/+$/, "");
 
@@ -223,11 +223,35 @@ export type AdminUserSummary = {
   } | null;
 };
 
+export type AdminUserVehicle = {
+  id: string;
+  make: string;
+  model: string;
+  year: number;
+  color: string | null;
+  licensePlate: string;
+  type: string;
+  size: string;
+  createdAt: string;
+};
+
+export type AdminUserBooking = {
+  id: string;
+  date: string;
+  timeSlot: string;
+  status: string;
+  totalPrice: number | string;
+  notes: string | null;
+  createdAt: string;
+  service: { name: string } | null;
+  business: { name: string } | null;
+};
+
 export type AdminUserDetail = Omit<AdminUserSummary, "customer" | "business"> & {
   customer:
     | (NonNullable<AdminUserSummary["customer"]> & {
-        vehicles: Record<string, unknown>[];
-        recentBookings: Record<string, unknown>[];
+        vehicles: AdminUserVehicle[];
+        recentBookings: AdminUserBooking[];
         reviewCount: number;
         favoriteCount: number;
       })
@@ -293,6 +317,9 @@ export type AdminBusinessSummary = {
   email: string;
   logo: string | null;
   coverImage: string | null;
+  latitude: number;
+  longitude: number;
+  operatingHours: unknown | null;
   rating: number;
   reviewCount: number;
   isVerified: boolean;
@@ -378,6 +405,11 @@ export type PaymentStatus =
 
 export type AdminBookingSummary = {
   id: string;
+  customerId: string;
+  businessId: string;
+  serviceId: string;
+  vehicleId: string;
+  timeSlotId: string;
   date: string;
   timeSlot: string;
   status: BookingStatus;
@@ -399,7 +431,11 @@ export type AdminBookingDetail = Omit<
   AdminBookingSummary,
   "customer" | "business" | "service" | "vehicle" | "payment"
 > & {
-  customer: AdminBookingSummary["customer"] & { user: { email: string } };
+  customer: AdminBookingSummary["customer"] & {
+    id: string;
+    userId: string;
+    user: { email: string };
+  };
   business: AdminBookingSummary["business"] & { owner: { email: string } };
   service: AdminServiceSummary;
   vehicle: AdminBookingSummary["vehicle"] & {
@@ -408,13 +444,25 @@ export type AdminBookingDetail = Omit<
     type: string;
     size: string;
   };
-  payment: AdminBookingSummary["payment"];
+  payment: {
+    id: string;
+    bookingId: string;
+    amount: number | string;
+    currency: string;
+    status: PaymentStatus;
+    method: string | null;
+    transactionId: string | null;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
   review: {
     id: string;
     rating: number;
     comment: string | null;
+    response: string | null;
     isHidden: boolean;
     hiddenReason: string | null;
+    createdAt: string;
   } | null;
 };
 

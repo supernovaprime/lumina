@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../libs/prisma/prisma.service';
 import { CacheService } from '../libs/cache/cache.service';
 import { SlotGeneratorService } from './slot-generator.service';
@@ -16,7 +21,8 @@ export class AvailabilityService {
     const template = await this.prisma.availabilityTemplate.findUnique({
       where: { businessId },
     });
-    if (!template) throw new NotFoundException('No availability template found');
+    if (!template)
+      throw new NotFoundException('No availability template found');
     return template;
   }
 
@@ -90,10 +96,13 @@ export class AvailabilityService {
     if (serviceId) {
       const service = await this.prisma.service.findUnique({
         where: { id: serviceId },
+        select: { durationMinutes: true },
       });
       if (service) {
-        filteredSlots = slots.filter(slot => {
-          const slotMinutes = this.timeToMinutes(slot.endTime) - this.timeToMinutes(slot.startTime);
+        filteredSlots = slots.filter((slot) => {
+          const slotMinutes =
+            this.timeToMinutes(slot.endTime) -
+            this.timeToMinutes(slot.startTime);
           return slotMinutes >= service.durationMinutes;
         });
       }
@@ -102,7 +111,7 @@ export class AvailabilityService {
     const result = {
       date: dateStr,
       businessId,
-      slots: filteredSlots.map(s => ({
+      slots: filteredSlots.map((s) => ({
         id: s.id,
         startTime: s.startTime,
         endTime: s.endTime,
@@ -124,7 +133,9 @@ export class AvailabilityService {
         const endMin = this.timeToMinutes(end);
 
         if (startMin >= endMin) {
-          throw new BadRequestException(`Invalid time window for ${day}: start must be before end`);
+          throw new BadRequestException(
+            `Invalid time window for ${day}: start must be before end`,
+          );
         }
 
         const windowLength = endMin - startMin;
@@ -134,8 +145,10 @@ export class AvailabilityService {
           );
         }
 
-        if (windowLength % (dto.slotLengthMinutes + dto.bufferMinutes) !== 0 &&
-            windowLength < dto.slotLengthMinutes) {
+        if (
+          windowLength % (dto.slotLengthMinutes + dto.bufferMinutes) !== 0 &&
+          windowLength < dto.slotLengthMinutes
+        ) {
           // Not an exact divide, but that's OK — trailing time is unused
         }
       }

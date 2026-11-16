@@ -9,7 +9,9 @@ export class BookingHoldExpiryProcessor {
 
   async process(): Promise<void> {
     if (!this.prisma?.booking) {
-      this.logger.warn('Prisma booking model unavailable — skipping hold expiry');
+      this.logger.warn(
+        'Prisma booking model unavailable — skipping hold expiry',
+      );
       return;
     }
 
@@ -17,23 +19,26 @@ export class BookingHoldExpiryProcessor {
 
     let expiredBookings: any[];
     try {
-      expiredBookings = await this.prisma.retryOnTransientError(() =>
-        this.prisma.booking.findMany({
-          where: {
-            status: 'PENDING',
-            createdAt: { lt: cutoff },
-          },
-          include: { timeSlot_rel: true },
-        }),
-      );
+      expiredBookings = await this.prisma.booking.findMany({
+        where: {
+          status: 'PENDING',
+          createdAt: { lt: cutoff },
+        },
+        select: { id: true, timeSlotId: true },
+      });
     } catch (err: any) {
-      this.logger.error(`Hold expiry query failed: ${err?.message ?? err}`, err?.stack);
+      this.logger.error(
+        `Hold expiry query failed: ${err?.message ?? err}`,
+        err?.stack,
+      );
       return;
     }
 
     if (!expiredBookings?.length) return;
 
-    this.logger.log(`Found ${expiredBookings.length} expired hold(s) to cancel`);
+    this.logger.log(
+      `Found ${expiredBookings.length} expired hold(s) to cancel`,
+    );
 
     for (const booking of expiredBookings) {
       if (!booking?.id) {

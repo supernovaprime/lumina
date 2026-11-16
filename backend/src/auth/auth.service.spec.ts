@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { TokenService } from '../libs/tokens/token.service';
 import { RateLimitService } from '../libs/rate-limit/rate-limit.service';
 import { NotificationService } from '../notification/notification.service';
+import { CacheService } from '../libs/cache/cache.service';
 import { ConflictException, UnauthorizedException, BadRequestException, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
@@ -19,6 +20,7 @@ describe('AuthService', () => {
   let tokenService: any;
   let rateLimit: any;
   let notificationService: any;
+  let cache: any;
 
   beforeEach(async () => {
     prisma = {
@@ -58,6 +60,12 @@ describe('AuthService', () => {
       enqueue: jest.fn().mockResolvedValue('notif-1'),
     };
 
+    cache = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(undefined),
+      del: jest.fn().mockResolvedValue(undefined),
+    };
+
     rateLimit = {
       isBlocked: jest.fn().mockResolvedValue({ blocked: false }),
       recordFailedAttempt: jest.fn().mockResolvedValue({ blocked: false, attemptsRemaining: 4 }),
@@ -73,6 +81,7 @@ describe('AuthService', () => {
         { provide: TokenService, useValue: tokenService },
         { provide: RateLimitService, useValue: rateLimit },
         { provide: NotificationService, useValue: notificationService },
+        { provide: CacheService, useValue: cache },
       ],
     }).compile();
 

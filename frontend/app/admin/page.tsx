@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { AdminCarWatermark } from "@/components/dashboard/AdminCarWatermark";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { adminToolkit } from "@/components/dashboard/admin-nav";
 import { buttonClass } from "@/components/ui/button";
@@ -46,9 +47,10 @@ function formatCount(value: number): string {
 }
 
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-GH", {
     style: "currency",
-    currency: "USD",
+    currency: "GHS",
+    currencyDisplay: "narrowSymbol",
     notation: value >= 10000 ? "compact" : "standard",
     maximumFractionDigits: value >= 10000 ? 1 : 2,
   }).format(value);
@@ -56,6 +58,8 @@ function formatCurrency(value: number): string {
 
 export default function AdminDashboardPage() {
   const router = useRouter();
+  const heroRef = useRef<HTMLElement>(null);
+  const reportRef = useRef<HTMLAnchorElement>(null);
   const confettiRef = useRef<ConfettiRef>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [metrics, setMetrics] = useState<AdminDashboardMetrics | null>(null);
@@ -187,7 +191,10 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-3">
-      <section className={glassCardClass("relative overflow-hidden p-6 sm:p-8")}>
+      <section
+        ref={heroRef}
+        className={glassCardClass("relative overflow-hidden p-6 sm:p-8")}
+      >
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-sea-400/20 blur-3xl dark:bg-sea-500/10"
@@ -196,9 +203,10 @@ export default function AdminDashboardPage() {
           aria-hidden="true"
           className="pointer-events-none absolute -bottom-24 left-1/3 size-56 rounded-full bg-sky-300/20 blur-3xl dark:bg-sky-400/10"
         />
+        <AdminCarWatermark containerRef={heroRef} parkingRef={reportRef} />
         <Confetti ref={confettiRef} className="z-0" />
 
-        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.55fr)] lg:items-center lg:gap-8">
+        <div className="relative z-10 grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.55fr)] lg:items-center lg:gap-8">
           <div className="relative order-1 flex justify-center lg:justify-start">
             <div
               aria-hidden="true"
@@ -249,6 +257,7 @@ export default function AdminDashboardPage() {
                 />
               </Link>
               <Link
+                ref={reportRef}
                 href="/admin/reports"
                 className={buttonClass({ variant: "gradientOutline", size: "default" })}
               >
@@ -258,7 +267,7 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="relative mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border/50 pt-4 text-label text-muted-foreground dark:border-white/10 dark:text-sky-400/70">
+        <div className="relative z-10 mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border/50 pt-4 text-label text-muted-foreground dark:border-white/10 dark:text-sky-400/70">
           <span className="inline-flex items-center gap-1.5">
             <ShieldCheck
               aria-hidden="true"
@@ -308,7 +317,7 @@ export default function AdminDashboardPage() {
           <MetricCard
             label="Revenue MTD"
             value={metrics ? formatCurrency(revenue) : "—"}
-            hint="Completed payments · USD"
+            hint="Completed payments · GHS"
             icon={Wallet}
             tone="success"
             loading={isLoading}

@@ -14,12 +14,19 @@ export class SendSmsProcessor {
   async process(notificationId: string): Promise<void> {
     const notification = await this.prisma.notification.findUnique({
       where: { id: notificationId },
+      select: {
+        id: true,
+        userId: true,
+        body: true,
+        status: true,
+      },
     } as any);
 
     if (!notification || notification.status !== 'PENDING') return;
 
     const user = await this.prisma.user.findUnique({
       where: { id: notification.userId },
+      select: { phone: true },
     });
 
     const phone = user?.phone;

@@ -17,10 +17,21 @@ export class BookingHistoryService {
     const [bookings, total] = await Promise.all([
       this.prisma.booking.findMany({
         where,
+        relationLoadStrategy: 'join',
         include: {
-          business: { select: { id: true, name: true, city: true, logo: true } },
+          business: {
+            select: { id: true, name: true, city: true, logo: true },
+          },
           service: { select: { id: true, name: true, category: true } },
-          vehicle: { select: { id: true, make: true, model: true, year: true, licensePlate: true } },
+          vehicle: {
+            select: {
+              id: true,
+              make: true,
+              model: true,
+              year: true,
+              licensePlate: true,
+            },
+          },
         },
         orderBy: { date: upcoming === 'false' ? 'desc' : 'asc' },
         skip: (page - 1) * limit,
